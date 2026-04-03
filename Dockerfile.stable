@@ -1,0 +1,38 @@
+ARG BASE_IMAGE=vllm/vllm-openai:v0.18.0-cu130
+
+FROM ${BASE_IMAGE} AS base
+
+SHELL ["/bin/bash", "-lc"]
+WORKDIR /workspace
+
+ENV UV_SYSTEM_PYTHON=1 \
+    UV_LINK_MODE=copy \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+ARG INSTALL_TRANSFORMERS_FROM_SOURCE="false"
+ARG INSTALL_TRANSFORMERS_FROM_PYPI="false"
+ARG TRANSFORMERS_VERSION=""
+ARG SKIP_SYSTEM_BOOTSTRAP="false"
+
+RUN if [ "${SKIP_SYSTEM_BOOTSTRAP}" != "true" ]; then \
+      apt-get update && \
+      apt-get install -y --no-install-recommends ca-certificates \
+        $(if [ "${INSTALL_TRANSFORMERS_FROM_SOURCE}" = "true" ]; then echo git; fi) && \
+      rm -rf /var/lib/apt/lists/*; \
+    fi && \
+    if ! command -v uv >/dev/null 2>&1; then \
+      python3 -m pip install --no-cache-dir --upgrade uv; \
+    fi && \
+    if [ "${INSTALL_TRANSFORMERS_FROM_SOURCE}" = "true" ]; then \
+      uv pip install --system --upgrade "transformers[serving] @ git+https://github.com/huggingface/transformers.git@main"; \
+    elif [ "${INSTALL_TRANSFORMERS_FROM_PYPI}" = "true" ]; then \
+      if [ -n "${TRANSFORMERS_VERSION}" ]; then \
+        uv pip install --system --upgrade "transformers[serving]==${TRANSFORMERS_VERSION}"; \
+      else \
+        uv pip install --system --upgrade "transformers[serving]"; \
+      fi; \
+    fi
+COPY scripts /opt/vllm-tools/scripts
+
+
+FROM base AS runtime-base

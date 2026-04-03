@@ -1,0 +1,65 @@
+ARG BASE_IMAGE=vllm/vllm-openai:v0.17.1-x86_64
+
+FROM ${BASE_IMAGE} AS base
+
+SHELL ["/bin/bash", "-lc"]
+WORKDIR /workspace
+
+ENV UV_SYSTEM_PYTHON=1 \
+    UV_LINK_MODE=copy \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+ARG INSTALL_TRANSFORMERS_FROM_SOURCE="false"
+ARG INSTALL_TRANSFORMERS_FROM_PYPI="false"
+ARG TRANSFORMERS_VERSION=""
+ARG SKIP_SYSTEM_BOOTSTRAP="false"
+
+RUN if [ "${SKIP_SYSTEM_BOOTSTRAP}" != "true" ]; then \
+      apt-get update && \
+      apt-get install -y --no-install-recommends ca-certificates patch \
+        $(if [ "${INSTALL_TRANSFORMERS_FROM_SOURCE}" = "true" ]; then echo git; fi) && \
+      rm -rf /var/lib/apt/lists/*; \
+    fi && \
+    if ! command -v uv >/dev/null 2>&1; then \
+      python3 -m pip install --no-cache-dir --upgrade uv; \
+    fi && \
+    if [ "${INSTALL_TRANSFORMERS_FROM_SOURCE}" = "true" ]; then \
+      uv pip install --system --upgrade "transformers[serving] @ git+https://github.com/huggingface/transformers.git@main"; \
+    elif [ "${INSTALL_TRANSFORMERS_FROM_PYPI}" = "true" ]; then \
+      if [ -n "${TRANSFORMERS_VERSION}" ]; then \
+        uv pip install --system --upgrade "transformers[serving]==${TRANSFORMERS_VERSION}"; \
+      else \
+        uv pip install --system --upgrade "transformers[serving]"; \
+      fi; \
+    fi
+
+COPY patches /opt/patches
+COPY scripts /opt/vllm-tools/scripts
+
+RUN if [ -d /opt/patches/rootfs ]; then \
+      cp -a /opt/patches/rootfs/. /; \
+    fi && \
+    mapfile -t patch_files < <(find /opt/patches -maxdepth 2 -type f -name '*.patch' | sort) && \
+    if [ "${#patch_files[@]}" -gt 0 ]; then \
+      for patch_file in "${patch_files[@]}"; do \
+        patch -p1 -d / < "${patch_file}"; \
+      done; \
+    fi
+
+
+FROM base AS builder-sparse-attn
+
+COPY references/sparse-mask-attention /opt/sparse-mask-attention
+WORKDIR /opt/sparse-mask-attention
+
+ENV TORCH_CUDA_ARCH_LIST="8.0;8.6"
+
+RUN python3 -m pip install --no-cache-dir --no-build-isolation /opt/sparse-mask-attention && \
+    python3 -c "import torch, sparse_attn_cuda; print(sparse_attn_cuda.__file__)"
+
+
+FROM base AS runtime-base
+
+COPY --from=builder-sparse-attn \
+  /usr/local/lib/python3.12/dist-packages/sparse_attn_cuda*.so \
+  /usr/local/lib/python3.12/dist-packages/
