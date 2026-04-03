@@ -110,11 +110,5 @@ vllm_models_markdown_table() {
     done
 }
 
-register_model "qwen27b"       "Qwen3.5-27B-FP8"  "262K" "2×GPU" "⭐ 多模态主力"       "🧠" 2
-register_model "qwen27b-text"  "Qwen3.5-27B-FP8"  "262K" "2×GPU" "📝 纯文本高并发"     "📄" 2
-register_model "qwen9b"        "Qwen3.5-9B"       "262K" "2×GPU" "🚀 轻量超长上下文"   "⚡" 2
-register_model "qwen9b-nvfp4"  "Qwen3.5-9B-NVFP4" "262K" "1×GPU" "🔋 NVFP4 量化单卡"  "🔬" 1
-register_model "qwen4b"        "Qwen3.5-4B"       "128K" "1×GPU" "🧪 开发调试单卡"     "🔧" 1
-register_model "qwen4b-exp"    "Qwen3.5-4B"       "128K" "1×GPU" "🔬 Sparse-Attn 实验" "🧪" 1
-register_model "qwen4b-tq-stable" "Qwen3.5-4B"    "128K" "1×GPU" "📊 TurboQuant A 组"  "🅰️" 1
-register_model "qwen4b-tq-exp"    "Qwen3.5-4B"    "128K" "1×GPU" "🧬 TurboQuant B 组"  "🅱️" 1
+# ---- Gemma 4 Model Registry ----
+register_model "gemma26b"  "Gemma-4-26B-A4B-it"  "256K" "2×GPU" "⭐ MoE 多模态主力"  "💎" 2

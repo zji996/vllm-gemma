@@ -157,7 +157,7 @@ _draw_header() {
     row=$((row + 1))
     _print_center "$row" "${C_BOLD}${FG_ACCENT}║${C_RESET}  ${C_BOLD}🤖 vLLM Model Launcher${C_RESET}                  ${C_BOLD}${FG_ACCENT}║${C_RESET}"
     row=$((row + 1))
-    _print_center "$row" "${C_BOLD}${FG_ACCENT}║${C_RESET}  ${FG_DIM_TEXT}Qwen 3.5 Multi-GPU Management${C_RESET}          ${C_BOLD}${FG_ACCENT}║${C_RESET}"
+    _print_center "$row" "${C_BOLD}${FG_ACCENT}║${C_RESET}  ${FG_DIM_TEXT}Gemma 4 Multi-GPU Management${C_RESET}            ${C_BOLD}${FG_ACCENT}║${C_RESET}"
     row=$((row + 1))
     _print_center "$row" "${C_BOLD}${FG_ACCENT}╚══════════════════════════════════════════╝${C_RESET}"
 }
@@ -640,7 +640,7 @@ _action_start() {
     r=$((r + 2))
     _print_at "$r" "$((box_col + 6))" "${FG_DIM_TEXT}Endpoint:${C_RESET}  http://localhost:${PORT}/v1"
     r=$((r + 1))
-    _print_at "$r" "$((box_col + 6))" "${FG_DIM_TEXT}Model:${C_RESET}     qwen"
+    _print_at "$r" "$((box_col + 6))" "${FG_DIM_TEXT}Model:${C_RESET}     gemma"
     r=$((r + 1))
     _print_at "$r" "$((box_col + 6))" "${FG_DIM_TEXT}API Key:${C_RESET}   ${API_KEY:-abc123}"
     r=$((r + 2))

@@ -1,5 +1,5 @@
 # ============================================================
-# vLLM Multi-Model Launcher
+# vLLM Multi-Model Launcher — Gemma 4
 # ============================================================
 # Usage:
 #   ./vllm.sh list              — 列出所有可用模型
@@ -9,9 +9,7 @@
 #   ./vllm.sh logs              — 查看日志
 #
 # Or directly with docker compose:
-#   docker compose --profile qwen27b up -d
-#   docker compose --profile qwen9b up -d
-#   docker compose --profile qwen9b-nvfp4 up -d
+#   docker compose --profile gemma26b up -d
 # ============================================================
 
 # ---- Shared config anchors ----
@@ -22,32 +20,26 @@ x-env-modelscope: &env-modelscope
   MODELSCOPE_CACHE: /root/.cache/modelscope
   TRITON_CACHE_DIR: /root/.triton/cache
   VLLM_USE_MODELSCOPE: "True"
-  USE_FAST: "True"
 
 # Environment: HuggingFace source (for HF-only models)
 x-env-huggingface: &env-huggingface
   NVIDIA_VISIBLE_DEVICES: all
   HF_HOME: /root/.cache/huggingface
   TRITON_CACHE_DIR: /root/.triton/cache
-  USE_FAST: "True"
 
 x-vllm-serve-common: &vllm-serve-common
-  VLLM_SERVED_MODEL_NAME: qwen
+  VLLM_SERVED_MODEL_NAME: gemma
   VLLM_API_KEY: ${API_KEY:-abc123}
-  SERVE_REASONING_PARSER: qwen3
-  SERVE_ENABLE_AUTO_TOOL_CHOICE: "true"
-  SERVE_TOOL_CALL_PARSER: qwen3_coder
   VLLM_ENABLE_PREFIX_CACHING: "true"
 
 x-vllm-serve-mm-common: &vllm-serve-mm-common
-  SERVE_MM_ENCODER_TP_MODE: data
   SERVE_MM_PROCESSOR_CACHE_TYPE: shm
 
-x-vllm-serve-262k: &vllm-serve-262k
+x-vllm-serve-256k: &vllm-serve-256k
   VLLM_MAX_MODEL_LEN: ${MAX_MODEL_LEN:-262144}
   VLLM_MAX_NUM_SEQS: ${MAX_NUM_SEQS:-1000}
 
-x-vllm-serve-4b: &vllm-serve-4b
+x-vllm-serve-128k: &vllm-serve-128k
   VLLM_MAX_MODEL_LEN: ${MAX_MODEL_LEN:-131072}
   VLLM_MAX_NUM_SEQS: ${MAX_NUM_SEQS:-256}
 
@@ -57,46 +49,20 @@ x-vllm-mm-limit-1000: &vllm-mm-limit-1000
 x-vllm-mm-limit-100: &vllm-mm-limit-100
   VLLM_LIMIT_MM_PER_PROMPT: '{"image":100}'
 
-x-vllm-longctx-text: &vllm-longctx-text
-  <<: [*vllm-serve-common, *vllm-serve-262k]
+# Gemma 26B A4B: MoE 26B总参/4B激活, 256K上下文, 多模态
+x-vllm-gemma26b-mm-tp2: &vllm-gemma26b-mm-tp2
+  <<: [*vllm-serve-common, *vllm-serve-mm-common, *vllm-serve-256k, *vllm-mm-limit-1000]
   VLLM_TENSOR_PARALLEL_SIZE: "2"
 
-x-vllm-longctx-mm-tp2: &vllm-longctx-mm-tp2
-  <<: [*vllm-serve-common, *vllm-serve-mm-common, *vllm-serve-262k, *vllm-mm-limit-1000]
-  VLLM_TENSOR_PARALLEL_SIZE: "2"
-
-x-vllm-longctx-mm-tp1: &vllm-longctx-mm-tp1
-  <<: [*vllm-serve-common, *vllm-serve-mm-common, *vllm-serve-262k, *vllm-mm-limit-1000]
+x-vllm-gemma26b-mm-tp1: &vllm-gemma26b-mm-tp1
+  <<: [*vllm-serve-common, *vllm-serve-mm-common, *vllm-serve-256k, *vllm-mm-limit-100]
   VLLM_TENSOR_PARALLEL_SIZE: "1"
-
-x-vllm-4b-mm: &vllm-4b-mm
-  <<: [*vllm-serve-common, *vllm-serve-mm-common, *vllm-serve-4b, *vllm-mm-limit-100]
-  VLLM_TENSOR_PARALLEL_SIZE: "1"
-
-x-vllm-turboquant-off: &vllm-turboquant-off
-  VLLM_TURBOQUANT_ENABLE: "false"
-  VLLM_TURBOQUANT_BITS: ${VLLM_TURBOQUANT_BITS:-4}
-  VLLM_TURBOQUANT_TARGET: full_attention
-  VLLM_TURBOQUANT_MODE: off
-  VLLM_TURBOQUANT_SAMPLE_LAYERS: ${VLLM_TURBOQUANT_SAMPLE_LAYERS:-}
-
-x-vllm-turboquant-shadow: &vllm-turboquant-shadow
-  VLLM_TURBOQUANT_ENABLE: "true"
-  VLLM_TURBOQUANT_BITS: ${VLLM_TURBOQUANT_BITS:-4}
-  VLLM_TURBOQUANT_TARGET: full_attention
-  VLLM_TURBOQUANT_MODE: shadow
-  VLLM_TURBOQUANT_SAMPLE_LAYERS: ${VLLM_TURBOQUANT_SAMPLE_LAYERS:-}
-  VLLM_TURBOQUANT_MAX_SHADOW_RECORDS: ${VLLM_TURBOQUANT_MAX_SHADOW_RECORDS:-8}
-  VLLM_TURBOQUANT_MAX_SHADOW_SEQ_LEN: ${VLLM_TURBOQUANT_MAX_SHADOW_SEQ_LEN:-512}
-  VLLM_TURBOQUANT_MAX_SHADOW_QUERY_TOKENS: ${VLLM_TURBOQUANT_MAX_SHADOW_QUERY_TOKENS:-2}
-
 
 x-common-volumes: &common-volumes
   - /data/models/modelscope:/root/.cache/modelscope
   - /data/vllm:/root/.cache/vllm
   - /data/vllm/triton_cache:/root/.triton/cache
   - /data/models/huggingface:/root/.cache/huggingface
-  - /data/models/template:/root/.cache/template
 
 # Deploy: dual GPU (e.g. 2× RTX 3080 20GB)
 x-deploy-dual-gpu: &deploy-dual-gpu
@@ -109,7 +75,7 @@ x-deploy-dual-gpu: &deploy-dual-gpu
     limits:
       memory: 50g
 
-# Deploy: single GPU (e.g. RTX 5090)
+# Deploy: single GPU
 # GPU 可通过 VLLM_GPU_ID 环境变量动态选择 (./vllm.sh start <profile> --gpu 1)
 x-deploy-single-gpu: &deploy-single-gpu
   resources:
@@ -122,7 +88,6 @@ x-deploy-single-gpu: &deploy-single-gpu
       memory: 40g
 
 # Deploy: single GPU (e.g. 1× RTX 3080 20GB)
-# GPU 可通过 VLLM_GPU_ID 环境变量动态选择 (./vllm.sh start <profile> --gpu 1)
 x-deploy-single-3080: &deploy-single-3080
   resources:
     reservations:
@@ -133,52 +98,18 @@ x-deploy-single-3080: &deploy-single-3080
     limits:
       memory: 30g
 
-x-deploy-single-3080-gpu0: &deploy-single-3080-gpu0
-  resources:
-    reservations:
-      devices:
-        - driver: nvidia
-          device_ids: ['0']
-          capabilities: [gpu, compute, utility]
-    limits:
-      memory: 30g
-
-x-deploy-single-3080-gpu1: &deploy-single-3080-gpu1
-  resources:
-    reservations:
-      devices:
-        - driver: nvidia
-          device_ids: ['1']
-          capabilities: [gpu, compute, utility]
-    limits:
-      memory: 30g
-
 # ---- Build config ----
-# stable: v0.18.0 官方原版镜像 + scripts
-# experimental: v0.17.1 官方镜像 + rootfs patch + scripts
 x-build-config-stable: &build-config-stable
   context: .
   dockerfile: Dockerfile.stable
   target: runtime-base
   args:
-    BASE_IMAGE: ${STABLE_BASE_IMAGE:-vllm/vllm-openai:v0.18.0-cu130}
+    BASE_IMAGE: ${STABLE_BASE_IMAGE:-vllm/vllm-openai:v0.19.0}
     INSTALL_TRANSFORMERS_FROM_SOURCE: ${INSTALL_TRANSFORMERS_FROM_SOURCE:-false}
     INSTALL_TRANSFORMERS_FROM_PYPI: ${INSTALL_TRANSFORMERS_FROM_PYPI:-false}
     TRANSFORMERS_VERSION: ${TRANSFORMERS_VERSION:-}
     SKIP_SYSTEM_BOOTSTRAP: ${SKIP_SYSTEM_BOOTSTRAP:-false}
 
-x-build-config-experimental: &build-config-experimental
-  context: .
-  dockerfile: Dockerfile.experimental
-  target: runtime-base
-  args:
-    BASE_IMAGE: ${EXPERIMENTAL_BASE_IMAGE:-vllm/vllm-openai:v0.17.1-x86_64}
-    INSTALL_TRANSFORMERS_FROM_SOURCE: ${INSTALL_TRANSFORMERS_FROM_SOURCE:-false}
-    INSTALL_TRANSFORMERS_FROM_PYPI: ${INSTALL_TRANSFORMERS_FROM_PYPI:-false}
-    TRANSFORMERS_VERSION: ${TRANSFORMERS_VERSION:-}
-    SKIP_SYSTEM_BOOTSTRAP: ${SKIP_SYSTEM_BOOTSTRAP:-false}
-
-# 默认 build-config 指向 stable (v0.18.0 upstream 原版基线)
 x-build-config: &build-config
   <<: *build-config-stable
 
@@ -196,23 +127,7 @@ x-base-dual-ms: &base-dual-ms
   deploy: *deploy-dual-gpu
   restart: unless-stopped
 
-# Base: single GPU + HuggingFace (target: RTX 5090)
-# 端口通过 VLLM_HOST_PORT 动态选择 (--gpu 0 → 8000, --gpu 1 → 8001)
-x-base-single-hf: &base-single-hf
-  build: *build-config
-  image: local/vllm-openai:latest
-  entrypoint: ["/opt/vllm-tools/scripts/vllm/serve-model.sh"]
-  runtime: nvidia
-  environment: *env-huggingface
-  volumes: *common-volumes
-  ports:
-    - "${VLLM_HOST_PORT:-8000}:8000"
-  ipc: host
-  deploy: *deploy-single-gpu
-  restart: unless-stopped
-
-# Base: single GPU + ModelScope (current server: 1× RTX 3080 20GB)
-# 端口通过 VLLM_HOST_PORT 动态选择 (--gpu 0 → 8000, --gpu 1 → 8001)
+# Base: single GPU + ModelScope
 x-base-single-ms: &base-single-ms
   build: *build-config
   image: local/vllm-openai:latest
@@ -226,161 +141,39 @@ x-base-single-ms: &base-single-ms
   deploy: *deploy-single-3080
   restart: unless-stopped
 
-x-base-single-ms-exp: &base-single-ms-exp
-  build: *build-config-experimental
-  image: local/vllm-openai:exp
+# Base: single GPU + HuggingFace
+x-base-single-hf: &base-single-hf
+  build: *build-config
+  image: local/vllm-openai:latest
   entrypoint: ["/opt/vllm-tools/scripts/vllm/serve-model.sh"]
   runtime: nvidia
-  environment: *env-modelscope
+  environment: *env-huggingface
   volumes: *common-volumes
   ports:
     - "${VLLM_HOST_PORT:-8000}:8000"
   ipc: host
-  deploy: *deploy-single-3080
-  restart: unless-stopped
-
-x-base-single-ms-gpu0: &base-single-ms-gpu0
-  build: *build-config-stable
-  image: local/vllm-openai:latest
-  entrypoint: ["/opt/vllm-tools/scripts/vllm/serve-model.sh"]
-  runtime: nvidia
-  environment: *env-modelscope
-  volumes: *common-volumes
-  ports:
-    - "8000:8000"
-  ipc: host
-  deploy: *deploy-single-3080-gpu0
-  restart: unless-stopped
-
-x-base-single-ms-exp-gpu1: &base-single-ms-exp-gpu1
-  build: *build-config-experimental
-  image: local/vllm-openai:exp
-  entrypoint: ["/opt/vllm-tools/scripts/vllm/serve-model.sh"]
-  runtime: nvidia
-  environment: *env-modelscope
-  volumes: *common-volumes
-  ports:
-    - "8001:8000"
-  ipc: host
-  deploy: *deploy-single-3080-gpu1
+  deploy: *deploy-single-gpu
   restart: unless-stopped
 
 # ============================================================
 # Model Services — 同一时间只能运行一个 (共享端口 8000)
 #
-# 配置"类型"说明:
-#   A) 27B 多模态: TP=2, 超长上下文, 多模态 + prefix caching
-#   B) 27B 纯文本: TP=2, 超长上下文, 无多模态 + prefix caching
-#   C) 9B 多模态:  TP=2/1, 超长上下文, 多模态 + prefix caching
-#   D) 9B NVFP4:   TP=1, 超长上下文, 多模态 + prefix caching
-#   E) 4B 多模态:  TP=1, 单卡开发调试, 多模态 + prefix caching
+# Gemma 4 Model Family:
+#   A) 26B-A4B MoE: 26B总参/4B激活, 256K上下文, 多模态 (Text+Image)
 # ============================================================
 
 services:
   # --------------------------------------------------------
-  # [类型 A] Qwen3.5-27B-FP8 — 多模态主力
-  # 默认使用统一参数: MAX_MODEL_LEN=262144, MAX_NUM_SEQS=1000
+  # Gemma-4-26B-A4B-it — MoE 多模态主力
+  # 26B 总参数, 4B 激活参数, 128 experts (8 active + 1 shared)
+  # 支持 Text + Image 多模态输入
   # 硬件: 2× RTX 3080 20GB | 模型源: ModelScope
   # --------------------------------------------------------
-  qwen27b:
+  gemma26b:
     <<: *base-dual-ms
-    container_name: vllm-qwen27b
-    profiles: ["qwen27b"]
+    container_name: vllm-gemma26b
+    profiles: ["gemma26b"]
     environment:
-      <<: [*env-modelscope, *vllm-longctx-mm-tp2]
-      VLLM_MODEL: Qwen/Qwen3.5-27B-FP8
-      VLLM_GPU_MEMORY_UTILIZATION: ${GPU_MEMORY_UTILIZATION:-0.98}
-
-  # --------------------------------------------------------
-  # [类型 B] Qwen3.5-27B-FP8 — 纯文本模式
-  # 与多模态统一默认并发/上下文, 仅保留纯文本差异
-  # 硬件: 2× RTX 3080 20GB | 模型源: ModelScope
-  # --------------------------------------------------------
-  qwen27b-text:
-    <<: *base-dual-ms
-    container_name: vllm-qwen27b-text
-    profiles: ["qwen27b-text"]
-    environment:
-      <<: [*env-modelscope, *vllm-longctx-text]
-      VLLM_MODEL: Qwen/Qwen3.5-27B-FP8
-      VLLM_GPU_MEMORY_UTILIZATION: ${GPU_MEMORY_UTILIZATION:-0.98}
-
-  # --------------------------------------------------------
-  # [类型 C] Qwen3.5-9B — 超长上下文 262K
-  # 显存充裕, TP=2 加速推理
-  # 适合超长文档处理、代码分析等场景
-  # 硬件: 2× RTX 3080 20GB | 模型源: ModelScope
-  # --------------------------------------------------------
-  qwen9b:
-    <<: *base-dual-ms
-    container_name: vllm-qwen9b
-    profiles: ["qwen9b"]
-    environment:
-      <<: [*env-modelscope, *vllm-longctx-mm-tp2]
-      VLLM_MODEL: Qwen/Qwen3.5-9B
+      <<: [*env-modelscope, *vllm-gemma26b-mm-tp2]
+      VLLM_MODEL: google/gemma-4-26B-A4B-it
       VLLM_GPU_MEMORY_UTILIZATION: ${GPU_MEMORY_UTILIZATION:-0.95}
-
-  # --------------------------------------------------------
-  # [类型 D] Qwen3.5-9B-NVFP4 — NVFP4 量化, 单卡运行
-  # 来自 HuggingFace: Kbenkhaled/Qwen3.5-9B-NVFP4
-  # 超低显存占用, 单卡即可超长上下文
-  # 硬件: 单卡 (目标 RTX 5090) | 模型源: HuggingFace
-  # --------------------------------------------------------
-  qwen9b-nvfp4:
-    <<: *base-single-hf
-    container_name: vllm-qwen9b-nvfp4
-    profiles: ["qwen9b-nvfp4"]
-    environment:
-      <<: [*env-huggingface, *vllm-longctx-mm-tp1]
-      VLLM_MODEL: Kbenkhaled/Qwen3.5-9B-NVFP4
-      VLLM_GPU_MEMORY_UTILIZATION: ${GPU_MEMORY_UTILIZATION:-0.95}
-
-  # --------------------------------------------------------
-  # [类型 E] Qwen3.5-4B — 轻量开发调试
-  # 单卡 RTX 3080 20GB 即可运行, 适合快速迭代
-  # 默认上下文 131072 (128K), 可通过 MAX_MODEL_LEN 调整
-  # 硬件: 1× RTX 3080 20GB | 模型源: ModelScope
-  # --------------------------------------------------------
-  qwen4b:
-    <<: *base-single-ms
-    container_name: vllm-qwen4b
-    profiles: ["qwen4b"]
-    environment:
-      <<: [*env-modelscope, *vllm-4b-mm]
-      VLLM_MODEL: Qwen/Qwen3.5-4B
-      VLLM_GPU_MEMORY_UTILIZATION: ${GPU_MEMORY_UTILIZATION:-0.95}
-      VLLM_COMPILATION_CONFIG: '{"compile_mm_encoder": true}'
-      VLLM_MM_ENCODER_ATTN_BACKEND: ${QWEN4B_MM_ENCODER_ATTN_BACKEND:-FLASH_ATTN}
-
-  qwen4b-exp:
-    <<: *base-single-ms-exp
-    container_name: vllm-qwen4b-exp
-    profiles: ["qwen4b-exp"]
-    environment:
-      <<: [*env-modelscope, *vllm-4b-mm]
-      VLLM_MODEL: Qwen/Qwen3.5-4B
-      VLLM_GPU_MEMORY_UTILIZATION: ${GPU_MEMORY_UTILIZATION:-0.95}
-      VLLM_COMPILATION_CONFIG: '{"compile_mm_encoder": false}'
-      VLLM_MM_ENCODER_ATTN_BACKEND: SPARSE_MASK
-
-  qwen4b-tq-stable:
-    <<: *base-single-ms-gpu0
-    container_name: vllm-qwen4b-tq-stable
-    profiles: ["qwen4b-tq-stable"]
-    environment:
-      <<: [*env-modelscope, *vllm-4b-mm]
-      VLLM_MODEL: Qwen/Qwen3.5-4B
-      VLLM_GPU_MEMORY_UTILIZATION: ${GPU_MEMORY_UTILIZATION:-0.95}
-      VLLM_COMPILATION_CONFIG: '{"compile_mm_encoder": true}'
-      VLLM_MM_ENCODER_ATTN_BACKEND: ${QWEN4B_MM_ENCODER_ATTN_BACKEND:-FLASH_ATTN}
-
-  qwen4b-tq-exp:
-    <<: *base-single-ms-exp-gpu1
-    container_name: vllm-qwen4b-tq-exp
-    profiles: ["qwen4b-tq-exp"]
-    environment:
-      <<: [*env-modelscope, *vllm-4b-mm, *vllm-turboquant-shadow]
-      VLLM_MODEL: Qwen/Qwen3.5-4B
-      VLLM_GPU_MEMORY_UTILIZATION: ${GPU_MEMORY_UTILIZATION:-0.95}
-      VLLM_COMPILATION_CONFIG: '{"compile_mm_encoder": true}'
-      VLLM_MM_ENCODER_ATTN_BACKEND: ${QWEN4B_MM_ENCODER_ATTN_BACKEND:-FLASH_ATTN}
