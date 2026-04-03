@@ -31,9 +31,19 @@ x-vllm-serve-common: &vllm-serve-common
   VLLM_SERVED_MODEL_NAME: gemma
   VLLM_API_KEY: ${API_KEY:-abc123}
   VLLM_ENABLE_PREFIX_CACHING: "true"
+  # Gemma 4 tool calling
+  SERVE_ENABLE_AUTO_TOOL_CHOICE: "true"
+  SERVE_TOOL_CALL_PARSER: gemma4
+  # Thinking mode: 默认关闭, 设 true 启用
+  SERVE_ENABLE_THINKING: ${ENABLE_THINKING:-false}
+  SERVE_REASONING_PARSER: gemma4
+  # 性能优化
+  SERVE_ASYNC_SCHEDULING: "true"
 
 x-vllm-serve-mm-common: &vllm-serve-mm-common
   SERVE_MM_PROCESSOR_CACHE_TYPE: shm
+  # Vision token budget: 280(默认), 可选 70/140/280/560/1120
+  SERVE_MM_PROCESSOR_KWARGS: '{"max_soft_tokens": ${VISION_TOKEN_BUDGET:-280}}'
 
 x-vllm-serve-256k: &vllm-serve-256k
   VLLM_MAX_MODEL_LEN: ${MAX_MODEL_LEN:-262144}
@@ -177,3 +187,5 @@ services:
       <<: [*env-modelscope, *vllm-gemma26b-mm-tp2]
       VLLM_MODEL: google/gemma-4-26B-A4B-it
       VLLM_GPU_MEMORY_UTILIZATION: ${GPU_MEMORY_UTILIZATION:-0.95}
+      # 26B 不支持 audio, 仅 image
+      VLLM_LIMIT_MM_PER_PROMPT: '${LIMIT_MM:-image=1000}'

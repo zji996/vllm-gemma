@@ -21,23 +21,31 @@ success() { echo -e "${GREEN}✔${NC} $*"; }
 warn()    { echo -e "${YELLOW}⚠${NC} $*"; }
 error()   { echo -e "${RED}✖${NC} $*" >&2; }
 
-# ---- 检查 Python 环境 ----
-check_python() {
+# ---- 确保 venv 环境就绪 (含 modelscope SDK) ----
+VENV_DIR="${SCRIPT_DIR}/.cache/venv"
+PYTHON="${VENV_DIR}/bin/python3"
+
+ensure_venv() {
+    # 如果 venv 已存在且 modelscope 可导入, 直接返回
+    if [[ -f "${PYTHON}" ]] && "${PYTHON}" -c "import modelscope" 2>/dev/null; then
+        return 0
+    fi
+
     if ! command -v python3 &>/dev/null; then
         error "python3 not found. Please install Python 3.8+."
         exit 1
     fi
-}
 
-# ---- 确保 modelscope SDK 已安装 ----
-ensure_modelscope() {
-    if python3 -c "import modelscope" 2>/dev/null; then
-        return 0
+    # 创建 venv (如不存在)
+    if [[ ! -f "${PYTHON}" ]]; then
+        info "Creating venv at ${BOLD}.cache/venv/${NC} ..."
+        python3 -m venv "${VENV_DIR}"
     fi
 
-    warn "modelscope SDK not found. Installing..."
-    pip3 install --quiet --upgrade modelscope
-    success "modelscope SDK installed."
+    # 安装 modelscope SDK
+    info "Installing modelscope SDK into venv..."
+    "${VENV_DIR}/bin/pip" install --quiet --upgrade modelscope
+    success "modelscope SDK ready."
 }
 
 # ---- 下载模型 ----
@@ -70,7 +78,7 @@ download_model() {
     # - 已下载的文件会跳过
     # - 部分下载的文件会断点续传
     # - cache_dir 结构与 vLLM 容器内 MODELSCOPE_CACHE 完全一致
-    python3 -c "
+    "${PYTHON}" -c "
 from modelscope import snapshot_download
 import os
 
@@ -128,6 +136,7 @@ show_help() {
     echo "  $0 google/gemma-4-26B-A4B-it          # 同上 (显式指定)"
     echo ""
     echo -e "${BOLD}Notes:${NC}"
+    echo "  - 自动创建 .cache/venv/ 虚拟环境安装 modelscope SDK"
     echo "  - 模型下载到 .cache/modelscope/hub/<model_id>/"
     echo "  - 与 vLLM 容器内 MODELSCOPE_CACHE 路径完全一致"
     echo "  - 支持断点续传, 重复运行不会重新下载已有文件"
@@ -142,6 +151,5 @@ case "${1:-}" in
         ;;
 esac
 
-check_python
-ensure_modelscope
+ensure_venv
 download_model "$MODEL_ID" "$CACHE_DIR"

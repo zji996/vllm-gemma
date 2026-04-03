@@ -32,20 +32,42 @@ fi
 
 ARGS=("${MODEL}")
 
+# ---- 基础参数 ----
 append_flag "--served-model-name" "${VLLM_SERVED_MODEL_NAME:-gemma}"
 append_flag "--tensor-parallel-size" "${VLLM_TENSOR_PARALLEL_SIZE:-}"
 append_flag "--gpu-memory-utilization" "${VLLM_GPU_MEMORY_UTILIZATION:-}"
 append_flag "--max-model-len" "${VLLM_MAX_MODEL_LEN:-}"
 append_flag "--max-num-seqs" "${VLLM_MAX_NUM_SEQS:-}"
 append_flag "--api-key" "${VLLM_API_KEY:-abc123}"
+
+# ---- Gemma 4 tool calling ----
+if is_truthy "${SERVE_ENABLE_AUTO_TOOL_CHOICE:-true}"; then
+    ARGS+=("--enable-auto-tool-choice")
+fi
+append_flag "--tool-call-parser" "${SERVE_TOOL_CALL_PARSER:-gemma4}"
+
+# ---- Gemma 4 thinking / reasoning ----
+if is_truthy "${SERVE_ENABLE_THINKING:-false}"; then
+    append_flag "--reasoning-parser" "${SERVE_REASONING_PARSER:-gemma4}"
+fi
+
+# ---- 多模态 ----
+append_flag "--mm-processor-cache-type" "${SERVE_MM_PROCESSOR_CACHE_TYPE:-${VLLM_MM_PROCESSOR_CACHE_TYPE:-}}"
+append_flag "--mm-processor-kwargs" "${SERVE_MM_PROCESSOR_KWARGS:-}"
+append_flag "--limit-mm-per-prompt" "${VLLM_LIMIT_MM_PER_PROMPT:-}"
+
+# ---- 性能 ----
+if is_truthy "${SERVE_ASYNC_SCHEDULING:-true}"; then
+    ARGS+=("--async-scheduling")
+fi
 if is_truthy "${VLLM_ENFORCE_EAGER:-false}"; then
     ARGS+=("--enforce-eager")
 fi
 append_flag "--compilation-config" "${VLLM_COMPILATION_CONFIG:-}"
-append_flag "--mm-processor-cache-type" "${SERVE_MM_PROCESSOR_CACHE_TYPE:-${VLLM_MM_PROCESSOR_CACHE_TYPE:-}}"
+
+# ---- 缓存 ----
 if is_truthy "${VLLM_ENABLE_PREFIX_CACHING:-true}"; then
     ARGS+=("--enable-prefix-caching")
 fi
-append_flag "--limit-mm-per-prompt" "${VLLM_LIMIT_MM_PER_PROMPT:-}"
 
 exec vllm serve "${ARGS[@]}"
