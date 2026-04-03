@@ -59,10 +59,10 @@ x-vllm-gemma26b-mm-tp1: &vllm-gemma26b-mm-tp1
   VLLM_TENSOR_PARALLEL_SIZE: "1"
 
 x-common-volumes: &common-volumes
-  - /data/models/modelscope:/root/.cache/modelscope
-  - /data/vllm:/root/.cache/vllm
-  - /data/vllm/triton_cache:/root/.triton/cache
-  - /data/models/huggingface:/root/.cache/huggingface
+  - ./.cache/modelscope:/root/.cache/modelscope
+  - ./.cache/vllm:/root/.cache/vllm
+  - ./.cache/triton:/root/.triton/cache
+  - ./.cache/huggingface:/root/.cache/huggingface
 
 # Deploy: dual GPU (e.g. 2× RTX 3080 20GB)
 x-deploy-dual-gpu: &deploy-dual-gpu

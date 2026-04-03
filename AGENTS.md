@@ -22,7 +22,14 @@
 ├── AGENTS.md                    # ← 你正在看的文件
 ├── Dockerfile.stable            # 稳定版镜像 (vLLM v0.19.0 + scripts)
 ├── docker-compose.yml           # 模型编排
+├── download-model.sh            # 模型预下载脚本 (ModelScope)
 ├── vllm.sh                      # CLI/TUI 入口脚本
+│
+├── .cache/                      # 本地缓存 (gitignore)
+│   ├── modelscope/              #   ModelScope 模型缓存
+│   ├── huggingface/             #   HuggingFace 模型缓存
+│   ├── vllm/                    #   vLLM 引擎缓存
+│   └── triton/                  #   Triton kernel 缓存
 │
 ├── scripts/
 │   └── vllm/                    # vllm.sh 模块拆分
@@ -91,6 +98,32 @@
 - 模型输出结构: `<|channel>thought\n`[推理过程]`<channel|>`[最终回答]
 
 ## 常用操作
+
+### Quick Start
+
+```bash
+# 1. 预下载模型 (约 48GB, 支持断点续传)
+./download-model.sh
+
+# 2. 构建 Docker 镜像
+docker compose build gemma26b
+
+# 3. 启动模型
+./vllm.sh start gemma26b
+```
+
+### 模型下载
+
+```bash
+# 默认下载 Gemma-4-26B-A4B-it
+./download-model.sh
+
+# 显式指定模型 ID
+./download-model.sh google/gemma-4-26B-A4B-it
+
+# 模型缓存在 .cache/modelscope/hub/google/gemma-4-26B-A4B-it/
+# 与 vLLM 容器内 MODELSCOPE_CACHE 路径完全一致, 无需重复下载
+```
 
 ### 日常使用
 
