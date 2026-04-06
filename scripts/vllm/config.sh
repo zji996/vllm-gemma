@@ -111,4 +111,4 @@ vllm_models_markdown_table() {
 }
 
 # ---- Gemma 4 Model Registry ----
-register_model "gemma26b"  "Gemma-4-26B-A4B-it"  "256K" "2×GPU" "⭐ MoE 多模态主力"  "💎" 2
+register_model "gemma26b" "Gemma-4-26B-A4B-it" "64K" "2×GPU" "⭐ 默认: PP=2 / TP=1 / Gemma4 patch" "💎" 2

@@ -25,12 +25,17 @@ x-env-modelscope: &env-modelscope
 x-env-huggingface: &env-huggingface
   NVIDIA_VISIBLE_DEVICES: all
   HF_HOME: /root/.cache/huggingface
+  HF_HUB_OFFLINE: "1"
   TRITON_CACHE_DIR: /root/.triton/cache
 
 x-vllm-serve-common: &vllm-serve-common
   VLLM_SERVED_MODEL_NAME: gemma
   VLLM_API_KEY: ${API_KEY:-abc123}
   VLLM_ENABLE_PREFIX_CACHING: "true"
+  # Debug flags for kernel/path A-B testing.
+  # Keep bool-like envs parseable by vLLM even when unset in the shell.
+  VLLM_BATCH_INVARIANT: ${VLLM_BATCH_INVARIANT:-0}
+  VLLM_TEST_FORCE_FP8_MARLIN: ${VLLM_TEST_FORCE_FP8_MARLIN:-0}
   # Gemma 4 tool calling
   SERVE_ENABLE_AUTO_TOOL_CHOICE: "true"
   SERVE_TOOL_CALL_PARSER: gemma4
@@ -45,13 +50,13 @@ x-vllm-serve-mm-common: &vllm-serve-mm-common
   # Vision token budget: 280(默认), 可选 70/140/280/560/1120
   SERVE_MM_PROCESSOR_KWARGS: '{"max_soft_tokens": ${VISION_TOKEN_BUDGET:-280}}'
 
-x-vllm-serve-256k: &vllm-serve-256k
-  VLLM_MAX_MODEL_LEN: ${MAX_MODEL_LEN:-262144}
-  VLLM_MAX_NUM_SEQS: ${MAX_NUM_SEQS:-1000}
+x-vllm-serve-64k: &vllm-serve-64k
+  VLLM_MAX_MODEL_LEN: ${MAX_MODEL_LEN:-65536}
+  VLLM_MAX_NUM_SEQS: ${MAX_NUM_SEQS:-100}
 
 x-vllm-serve-128k: &vllm-serve-128k
   VLLM_MAX_MODEL_LEN: ${MAX_MODEL_LEN:-131072}
-  VLLM_MAX_NUM_SEQS: ${MAX_NUM_SEQS:-256}
+  VLLM_MAX_NUM_SEQS: ${MAX_NUM_SEQS:-100}
 
 x-vllm-mm-limit-1000: &vllm-mm-limit-1000
   VLLM_LIMIT_MM_PER_PROMPT: '{"image":1000}'
@@ -59,13 +64,17 @@ x-vllm-mm-limit-1000: &vllm-mm-limit-1000
 x-vllm-mm-limit-100: &vllm-mm-limit-100
   VLLM_LIMIT_MM_PER_PROMPT: '{"image":100}'
 
-# Gemma 26B A4B: MoE 26B总参/4B激活, 256K上下文, 多模态
-x-vllm-gemma26b-mm-tp2: &vllm-gemma26b-mm-tp2
-  <<: [*vllm-serve-common, *vllm-serve-mm-common, *vllm-serve-256k, *vllm-mm-limit-1000]
-  VLLM_TENSOR_PARALLEL_SIZE: "2"
+# Gemma 26B A4B: MoE 26B总参/4B激活, 默认 64K 上下文, 多模态
+x-vllm-gemma26b-mm-pp2: &vllm-gemma26b-mm-pp2
+  <<: [*vllm-serve-common, *vllm-serve-mm-common, *vllm-serve-64k, *vllm-mm-limit-100]
+  VLLM_TENSOR_PARALLEL_SIZE: "1"
+  VLLM_PIPELINE_PARALLEL_SIZE: "2"
+  SERVE_ASYNC_SCHEDULING: "false"
+  # PP=2/TP=1 为当前双 3080 默认方案。
+  VLLM_MOE_BACKEND: ${VLLM_MOE_BACKEND:-auto}
 
 x-vllm-gemma26b-mm-tp1: &vllm-gemma26b-mm-tp1
-  <<: [*vllm-serve-common, *vllm-serve-mm-common, *vllm-serve-256k, *vllm-mm-limit-100]
+  <<: [*vllm-serve-common, *vllm-serve-mm-common, *vllm-serve-64k, *vllm-mm-limit-100]
   VLLM_TENSOR_PARALLEL_SIZE: "1"
 
 x-common-volumes: &common-volumes
@@ -116,26 +125,35 @@ x-build-config-stable: &build-config-stable
   args:
     BASE_IMAGE: ${STABLE_BASE_IMAGE:-vllm/vllm-openai:v0.19.0}
     INSTALL_TRANSFORMERS_FROM_SOURCE: ${INSTALL_TRANSFORMERS_FROM_SOURCE:-false}
-    INSTALL_TRANSFORMERS_FROM_PYPI: ${INSTALL_TRANSFORMERS_FROM_PYPI:-false}
+    INSTALL_TRANSFORMERS_FROM_PYPI: ${INSTALL_TRANSFORMERS_FROM_PYPI:-true}
     TRANSFORMERS_VERSION: ${TRANSFORMERS_VERSION:-}
+    INSTALL_VLLM_FROM_SOURCE: ${INSTALL_VLLM_FROM_SOURCE:-false}
+    VLLM_GIT_URL: ${VLLM_GIT_URL:-https://github.com/vllm-project/vllm.git}
+    VLLM_GIT_REF: ${VLLM_GIT_REF:-v0.19.0}
+    VLLM_TORCH_CUDA_ARCH_LIST: ${VLLM_TORCH_CUDA_ARCH_LIST:-8.6}
+    VLLM_MAX_JOBS: ${VLLM_MAX_JOBS:-}
+    VLLM_NVCC_THREADS: ${VLLM_NVCC_THREADS:-}
     SKIP_SYSTEM_BOOTSTRAP: ${SKIP_SYSTEM_BOOTSTRAP:-false}
 
 x-build-config: &build-config
   <<: *build-config-stable
 
-# Base: dual GPU + ModelScope (current server: 2× RTX 3080 20GB)
-x-base-dual-ms: &base-dual-ms
-  build: *build-config
-  image: local/vllm-openai:latest
-  entrypoint: ["/opt/vllm-tools/scripts/vllm/serve-model.sh"]
-  runtime: nvidia
-  environment: *env-modelscope
-  volumes: *common-volumes
-  ports:
-    - "8000:8000"
-  ipc: host
-  deploy: *deploy-dual-gpu
-  restart: unless-stopped
+x-build-config-gemma4patch-wheel: &build-config-gemma4patch-wheel
+  context: .
+  dockerfile: Dockerfile.stable
+  target: runtime-base
+  args:
+    BASE_IMAGE: ${STABLE_BASE_IMAGE:-vllm/vllm-openai:v0.19.0}
+    INSTALL_TRANSFORMERS_FROM_SOURCE: ${INSTALL_TRANSFORMERS_FROM_SOURCE:-false}
+    INSTALL_TRANSFORMERS_FROM_PYPI: ${INSTALL_TRANSFORMERS_FROM_PYPI:-true}
+    TRANSFORMERS_VERSION: ${TRANSFORMERS_VERSION:-}
+    INSTALL_VLLM_FROM_SOURCE: "false"
+    VLLM_GIT_URL: ${VLLM_GIT_URL:-https://github.com/vllm-project/vllm.git}
+    VLLM_GIT_REF: ${VLLM_GIT_REF:-v0.19.0}
+    VLLM_TORCH_CUDA_ARCH_LIST: ${VLLM_TORCH_CUDA_ARCH_LIST:-8.6}
+    VLLM_MAX_JOBS: ${VLLM_MAX_JOBS:-}
+    VLLM_NVCC_THREADS: ${VLLM_NVCC_THREADS:-}
+    SKIP_SYSTEM_BOOTSTRAP: ${SKIP_SYSTEM_BOOTSTRAP:-false}
 
 # Base: single GPU + ModelScope
 x-base-single-ms: &base-single-ms
@@ -165,11 +183,24 @@ x-base-single-hf: &base-single-hf
   deploy: *deploy-single-gpu
   restart: unless-stopped
 
+x-base-dual-ms-gemma4patch-wheel: &base-dual-ms-gemma4patch-wheel
+  build: *build-config-gemma4patch-wheel
+  image: local/vllm-openai:gemma4-pp
+  entrypoint: ["/opt/vllm-tools/scripts/vllm/serve-model.sh"]
+  runtime: nvidia
+  environment: *env-modelscope
+  volumes: *common-volumes
+  ports:
+    - "8000:8000"
+  ipc: host
+  deploy: *deploy-dual-gpu
+  restart: unless-stopped
+
 # ============================================================
 # Model Services — 同一时间只能运行一个 (共享端口 8000)
 #
 # Gemma 4 Model Family:
-#   A) 26B-A4B MoE: 26B总参/4B激活, 256K上下文, 多模态 (Text+Image)
+#   A) 26B-A4B MoE: 26B总参/4B激活, 64K上下文, 多模态 (Text+Image)
 # ============================================================
 
 services:
@@ -178,14 +209,15 @@ services:
   # 26B 总参数, 4B 激活参数, 128 experts (8 active + 1 shared)
   # 支持 Text + Image 多模态输入
   # 硬件: 2× RTX 3080 20GB | 模型源: ModelScope
+  # 默认部署: PP=2 / TP=1 / 仅 Gemma4 patch wheel 镜像
   # --------------------------------------------------------
   gemma26b:
-    <<: *base-dual-ms
+    <<: *base-dual-ms-gemma4patch-wheel
     container_name: vllm-gemma26b
     profiles: ["gemma26b"]
     environment:
-      <<: [*env-modelscope, *vllm-gemma26b-mm-tp2]
-      VLLM_MODEL: google/gemma-4-26B-A4B-it
-      VLLM_GPU_MEMORY_UTILIZATION: ${GPU_MEMORY_UTILIZATION:-0.95}
+      <<: [*env-modelscope, *vllm-gemma26b-mm-pp2]
+      VLLM_MODEL: /root/.cache/modelscope/google/gemma-4-26B-A4B-it-FP8
+      VLLM_GPU_MEMORY_UTILIZATION: ${GPU_MEMORY_UTILIZATION:-0.93}
       # 26B 不支持 audio, 仅 image
-      VLLM_LIMIT_MM_PER_PROMPT: '${LIMIT_MM:-image=1000}'
+      VLLM_LIMIT_MM_PER_PROMPT: '${LIMIT_MM:-{"image":100}}'

@@ -55,7 +55,7 @@
 
 | Profile | 说明 | GPU | 上下文 |
 |---------|------|-----|--------|
-| `gemma26b` | Gemma-4-26B-A4B-it MoE 多模态主力 | 2× | 256K |
+| `gemma26b` | Gemma-4-26B-A4B-it MoE 多模态主力，默认 PP=2 / TP=1 | 2× | 64K |
 
 ### 环境锚点 (YAML anchors)
 
@@ -78,7 +78,7 @@
 | 激活参数量 | 3.8B |
 | 层数 | 30 |
 | 滑动窗口 | 1024 tokens |
-| 上下文长度 | 256K tokens |
+| 上下文长度 | 64K tokens |
 | 词汇表大小 | 262K |
 | Expert 数量 | 8 active / 128 total + 1 shared |
 | 支持模态 | Text, Image |
@@ -108,7 +108,7 @@
 # 2. 构建 Docker 镜像
 docker compose build gemma26b
 
-# 3. 启动模型
+# 3. 启动模型 (默认 PP=2 / TP=1)
 ./vllm.sh start gemma26b
 ```
 
@@ -129,11 +129,16 @@ docker compose build gemma26b
 
 ```bash
 ./vllm.sh list          # 列出所有模型 profile
-./vllm.sh start gemma26b  # 启动 Gemma-4-26B
+./vllm.sh start gemma26b  # 启动 Gemma-4-26B (默认 PP=2 / TP=1)
 ./vllm.sh stop           # 停止当前模型
 ./vllm.sh status         # 查看运行状态
 ./vllm.sh logs           # 查看日志
 ```
+
+当前默认部署、PP 修复说明与并发基线可参考：
+
+- `docs/pp2-default.md`
+- `docs/benchmark-baseline.md`
 
 ### 构建镜像
 
@@ -143,6 +148,11 @@ docker compose build gemma26b
 
 # 带 transformers 源码安装
 INSTALL_TRANSFORMERS_FROM_SOURCE=true docker compose build gemma26b
+
+# 从 vLLM v0.19.0 源码重编 (适合 2×3080 / sm_86 / Marlin 排障)
+INSTALL_VLLM_FROM_SOURCE=true \
+VLLM_TORCH_CUDA_ARCH_LIST=8.6 \
+docker compose build gemma26b
 ```
 
 ## 关键约束
@@ -151,4 +161,5 @@ INSTALL_TRANSFORMERS_FROM_SOURCE=true docker compose build gemma26b
 2. **MoE 架构** — 26B 总参但仅 4B 激活，推理速度接近 4B 全密模型
 3. **SM86 共享内存受限** — `check_shared_mem()=False`，某些 Triton kernel tile size 受限
 4. **同一时间只能运行一个模型** — 所有 profile 共享端口 8000
-5. **模型大小** — BF16 权重约 48GB，需要 TP=2 在双 RTX 3080 20GB 上运行
+5. **默认并行策略** — 当前默认使用 PP=2 / TP=1，以规避 TP=2 下的 Marlin shape gap 与数值风险
+6. **当前运行基线** — 当前 `PP=2 / TP=1` 路径已在本机跑通，并记录了 async scheduling 开启下的文本 benchmark 基线
