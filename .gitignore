@@ -10,6 +10,7 @@ results/
 # Docker / build artifacts
 *.tar
 *.tar.gz
+build-marlin.log
 
 # Editor / IDE
 .vscode/
@@ -29,3 +30,6 @@ __pycache__/
 
 # Gemini / AI tooling
 .gemini/
+
+# Local runtime locks
+.vllm.lock
