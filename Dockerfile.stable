@@ -1,38 +1,97 @@
+# syntax=docker/dockerfile:1.7
 ARG BASE_IMAGE=vllm/vllm-openai:v0.19.0
 
 FROM ${BASE_IMAGE} AS base
 
 SHELL ["/bin/bash", "-lc"]
 WORKDIR /workspace
+COPY scripts /opt/vllm-tools/scripts
 
 ENV UV_SYSTEM_PYTHON=1 \
     UV_LINK_MODE=copy \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    CCACHE_DIR=/root/.cache/ccache \
+    CCACHE_BASEDIR=/opt/vllm-src \
+    CCACHE_COMPILERCHECK=content \
+    CCACHE_MAXSIZE=20G
 
 ARG INSTALL_TRANSFORMERS_FROM_SOURCE="false"
 ARG INSTALL_TRANSFORMERS_FROM_PYPI="false"
 ARG TRANSFORMERS_VERSION=""
+ARG INSTALL_VLLM_FROM_SOURCE="false"
+ARG VLLM_GIT_URL="https://github.com/vllm-project/vllm.git"
+ARG VLLM_GIT_REF="v0.19.0"
+ARG VLLM_TORCH_CUDA_ARCH_LIST="8.6"
+ARG VLLM_MAX_JOBS=""
+ARG VLLM_NVCC_THREADS=""
 ARG SKIP_SYSTEM_BOOTSTRAP="false"
 
-RUN if [ "${SKIP_SYSTEM_BOOTSTRAP}" != "true" ]; then \
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=cache,target=/root/.cache/ccache \
+    if [ "${SKIP_SYSTEM_BOOTSTRAP}" != "true" ]; then \
       apt-get update && \
       apt-get install -y --no-install-recommends ca-certificates \
-        $(if [ "${INSTALL_TRANSFORMERS_FROM_SOURCE}" = "true" ]; then echo git; fi) && \
+        $(if [ "${INSTALL_TRANSFORMERS_FROM_SOURCE}" = "true" ] || [ "${INSTALL_VLLM_FROM_SOURCE}" = "true" ]; then echo git; fi) \
+        $(if [ "${INSTALL_VLLM_FROM_SOURCE}" = "true" ]; then echo build-essential ninja-build ccache; fi) && \
       rm -rf /var/lib/apt/lists/*; \
     fi && \
     if ! command -v uv >/dev/null 2>&1; then \
       python3 -m pip install --no-cache-dir --upgrade uv; \
     fi && \
     if [ "${INSTALL_TRANSFORMERS_FROM_SOURCE}" = "true" ]; then \
-      uv pip install --system --upgrade "transformers[serving] @ git+https://github.com/huggingface/transformers.git@main"; \
+      uv pip install --system "transformers @ git+https://github.com/huggingface/transformers.git@main"; \
     elif [ "${INSTALL_TRANSFORMERS_FROM_PYPI}" = "true" ]; then \
       if [ -n "${TRANSFORMERS_VERSION}" ]; then \
-        uv pip install --system --upgrade "transformers[serving]==${TRANSFORMERS_VERSION}"; \
+        uv pip install --system "transformers>=${TRANSFORMERS_VERSION}"; \
       else \
-        uv pip install --system --upgrade "transformers[serving]"; \
+        uv pip install --system "transformers>=5.5.0"; \
       fi; \
+    fi && \
+    if [ "${INSTALL_VLLM_FROM_SOURCE}" = "true" ]; then \
+      rm -rf /opt/vllm-src && \
+      git clone --depth 1 --branch "${VLLM_GIT_REF}" "${VLLM_GIT_URL}" /opt/vllm-src && \
+      if [ -e /usr/local/cuda/lib64/libnvrtc.so.12 ] && [ ! -e /usr/local/cuda/lib64/libnvrtc.so ]; then \
+        ln -s libnvrtc.so.12 /usr/local/cuda/lib64/libnvrtc.so; \
+      fi && \
+      if [ -e /usr/local/cuda/targets/x86_64-linux/lib/libnvrtc.so.12 ] && [ ! -e /usr/local/cuda/targets/x86_64-linux/lib/libnvrtc.so ]; then \
+        ln -s libnvrtc.so.12 /usr/local/cuda/targets/x86_64-linux/lib/libnvrtc.so; \
+      fi && \
+      for incdir in /usr/local/lib/python3.12/dist-packages/nvidia/*/include; do \
+        if [ -d "${incdir}" ]; then \
+          find "${incdir}" -maxdepth 1 -type f -exec ln -sf -t /usr/local/cuda/include {} +; \
+        fi; \
+      done && \
+      for libfile in /usr/local/lib/python3.12/dist-packages/nvidia/*/lib/lib*.so.*; do \
+        if [ -f "${libfile}" ]; then \
+          libbase="$(basename "${libfile}")"; \
+          linkname="${libbase%%.so.*}.so"; \
+          if [ ! -e "/usr/local/cuda/lib64/${linkname}" ]; then \
+            ln -s "${libfile}" "/usr/local/cuda/lib64/${linkname}"; \
+          fi; \
+        fi; \
+      done && \
+      cd /opt/vllm-src && \
+      python3 /opt/vllm-tools/scripts/patch-vllm-marlin-moe-threadk32.py /opt/vllm-src && \
+      python3 use_existing_torch.py && \
+      uv pip install --system -r requirements/build.txt && \
+      python3 -m pip uninstall -y vllm || true && \
+      export TORCH_CUDA_ARCH_LIST="${VLLM_TORCH_CUDA_ARCH_LIST}"; \
+      export CMAKE_ARGS="${CMAKE_ARGS:+${CMAKE_ARGS} }-DCMAKE_CUDA_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"; \
+      if [ -n "${VLLM_MAX_JOBS}" ]; then export MAX_JOBS="${VLLM_MAX_JOBS}"; fi; \
+      if [ -n "${VLLM_NVCC_THREADS}" ]; then export NVCC_THREADS="${VLLM_NVCC_THREADS}"; fi; \
+      uv pip install --system --no-build-isolation -e . && \
+      if [ "${INSTALL_TRANSFORMERS_FROM_SOURCE}" = "true" ]; then \
+        uv pip install --system --upgrade "transformers @ git+https://github.com/huggingface/transformers.git@main"; \
+      elif [ "${INSTALL_TRANSFORMERS_FROM_PYPI}" = "true" ]; then \
+        if [ -n "${TRANSFORMERS_VERSION}" ]; then \
+          uv pip install --system --upgrade "transformers>=${TRANSFORMERS_VERSION}"; \
+        else \
+          uv pip install --system --upgrade "transformers>=5.5.0"; \
+        fi; \
+      fi && \
+      ccache -s; \
     fi
-COPY scripts /opt/vllm-tools/scripts
+RUN python3 /opt/vllm-tools/scripts/patch-vllm-gemma4-fp8.py
 
 
 FROM base AS runtime-base
