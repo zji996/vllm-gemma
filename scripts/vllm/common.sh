@@ -191,6 +191,35 @@ get_running_port() {
     echo "${ports[0]}"
 }
 
+get_service_container_id() {
+    local service="${1:?service is required}"
+    local container_id
+    container_id=$("${COMPOSE[@]}" ps -q "$service" 2>/dev/null | head -n 1)
+    if [[ -n "$container_id" ]]; then
+        printf '%s\n' "$container_id"
+        return 0
+    fi
+    return 1
+}
+
+get_container_env() {
+    local container_id="${1:?container_id is required}"
+    local env_name="${2:?env_name is required}"
+
+    docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$container_id" 2>/dev/null \
+        | sed -n "s/^${env_name}=//p" \
+        | head -n 1
+}
+
+get_service_env() {
+    local service="${1:?service is required}"
+    local env_name="${2:?env_name is required}"
+    local container_id
+
+    container_id=$(get_service_container_id "$service") || return 1
+    get_container_env "$container_id" "$env_name"
+}
+
 get_vllm_container_on_port() {
     local port="${1:?port is required}"
     local containers=()

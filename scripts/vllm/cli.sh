@@ -180,18 +180,29 @@ cmd_start() {
         exit 1
     fi
 
+    local service_port service_model_name service_api_key service_model_source
+    service_port=$(get_running_port 2>/dev/null || echo "$PORT")
+    service_model_name=$(get_service_env "$profile" "VLLM_SERVED_MODEL_NAME" 2>/dev/null || true)
+    service_api_key=$(get_service_env "$profile" "VLLM_API_KEY" 2>/dev/null || true)
+    service_model_source=$(get_service_env "$profile" "VLLM_MODEL" 2>/dev/null || true)
+
+    service_model_name="${service_model_name:-$(vllm_model_name "$profile")}"
+    service_api_key="${service_api_key:-${API_KEY:-abc123}}"
+    service_model_source="${service_model_source:-unknown}"
+
     echo ""
     success "Model container started."
     echo ""
-    echo -e "  ${CYAN}API Endpoint:${NC}  http://localhost:${PORT}/v1"
-    echo -e "  ${CYAN}Model Name:${NC}    gemma"
-    echo -e "  ${CYAN}API Key:${NC}       ${API_KEY:-abc123} ${YELLOW}(set API_KEY in .env to override)${NC}"
+    echo -e "  ${CYAN}API Endpoint:${NC}  http://localhost:${service_port}/v1"
+    echo -e "  ${CYAN}Model Name:${NC}    ${service_model_name}"
+    echo -e "  ${CYAN}Model Source:${NC}  ${service_model_source}"
+    echo -e "  ${CYAN}API Key:${NC}       ${service_api_key} ${YELLOW}(set API_KEY in .env to override)${NC}"
     echo ""
     echo -e "  ${BOLD}Quick test:${NC}"
-    echo -e "  curl http://localhost:${PORT}/v1/chat/completions \\"
-    echo -e "    -H 'Authorization: Bearer ${API_KEY:-abc123}' \\"
+    echo -e "  curl http://localhost:${service_port}/v1/chat/completions \\"
+    echo -e "    -H 'Authorization: Bearer ${service_api_key}' \\"
     echo -e "    -H 'Content-Type: application/json' \\"
-    echo -e "    -d '{\"model\":\"gemma\",\"messages\":[{\"role\":\"user\",\"content\":\"Hello!\"}]}'"
+    echo -e "    -d '{\"model\":\"${service_model_name}\",\"messages\":[{\"role\":\"user\",\"content\":\"Hello!\"}]}'"
     echo ""
     info "Use '${BOLD}$0 logs${NC}' to watch startup progress."
 }
