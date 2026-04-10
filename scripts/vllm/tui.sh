@@ -33,16 +33,17 @@ run_tui() {
         case "$choice" in
             1|start)
                 echo ""
-                echo -e "${BOLD}可用模型:${NC}"
+                echo -e "${BOLD}可用部署 Profile:${NC}"
+                echo -e "  ${CYAN}说明:${NC} gemma26b 是 profile 名，对应模型 ${BOLD}Gemma-4-26B-A4B-it${NC}，默认并行策略为 ${BOLD}PP=2 / TP=1${NC}"
                 local i profile
                 for i in "${!ALL_PROFILES[@]}"; do
                     profile="${ALL_PROFILES[$i]}"
                     local status_tag=""
                     [[ "$profile" == "$running" ]] && status_tag=" ${GREEN}● RUNNING${NC}"
-                    echo -e "  ${BOLD}$((i+1)))${NC} ${profile}  $(vllm_model_icon "$profile") $(vllm_model_name "$profile")  $(vllm_model_ctx "$profile")  $(vllm_model_gpu "$profile")${status_tag}"
+                    echo -e "  ${BOLD}$((i+1)))${NC} ${profile}  ->  $(vllm_model_icon "$profile") $(vllm_model_name "$profile")  [默认 PP=2 / TP=1]  $(vllm_model_ctx "$profile")  $(vllm_model_gpu "$profile")${status_tag}"
                 done
                 echo ""
-                echo -n "选择模型 (序号或名称)> "
+                echo -n "选择 profile (序号或名称)> "
                 read -r model_choice
 
                 # 支持序号或名称

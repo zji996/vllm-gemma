@@ -217,7 +217,10 @@ services:
     profiles: ["gemma26b"]
     environment:
       <<: [*env-modelscope, *vllm-gemma26b-mm-pp2]
-      VLLM_MODEL: /root/.cache/modelscope/google/gemma-4-26B-A4B-it-FP8
+      # Default to the published ModelScope repo id so the project works
+      # out-of-the-box on a fresh machine. First launch will populate
+      # MODELSCOPE_CACHE automatically.
+      VLLM_MODEL: ${MS_GEMMA26B_MODEL_ID:-kuohao/gemma-4-26B-A4B-it-FP8}
       VLLM_GPU_MEMORY_UTILIZATION: ${GPU_MEMORY_UTILIZATION:-0.93}
       # 26B 不支持 audio, 仅 image
       VLLM_LIMIT_MM_PER_PROMPT: '${LIMIT_MM:-{"image":100}}'

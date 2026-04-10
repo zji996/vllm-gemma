@@ -14,14 +14,17 @@ error()   { echo -e "${RED}✖${NC} $*" >&2; }
 
 cmd_list() {
     echo ""
-    echo -e "${BOLD}📦 Available Gemma 4 Models${NC}"
+    echo -e "${BOLD}📦 Available Gemma 4 Deploy Profiles${NC}"
     echo -e "${BOLD}═══════════════════════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    echo -e "  ${CYAN}Note:${NC} PROFILE 是 docker compose profile 名；MODEL 是它实际启动的模型。"
+    echo -e "        当前默认部署为 ${BOLD}gemma26b -> Gemma-4-26B-A4B-it${NC}，并行策略 ${BOLD}PP=2 / TP=1${NC}。"
     echo ""
 
     local running
     running=$(get_running_profile 2>/dev/null || echo "")
 
-    printf "  ${BOLD}%-16s %-28s %-10s %-6s %s${NC}\n" "PROFILE" "MODEL" "CTX LEN" "GPU" "DESCRIPTION"
+    printf "  ${BOLD}%-16s %-28s %-10s %-6s %s${NC}\n" "PROFILE" "MODEL" "CTX LEN" "GPU" "DEPLOYMENT"
     echo "  ──────────────────────────────────────────────────────────────────────────────────"
 
     _cli_print_row() {

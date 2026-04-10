@@ -102,28 +102,29 @@
 ### Quick Start
 
 ```bash
-# 1. 预下载模型 (约 48GB, 支持断点续传)
-./download-model.sh
-
-# 2. 构建 Docker 镜像
+# 1. 构建 Docker 镜像
 docker compose build gemma26b
 
-# 3. 启动模型 (默认 PP=2 / TP=1)
+# 2. 启动模型 (默认 PP=2 / TP=1)
 ./vllm.sh start gemma26b
 ```
+
+默认会直接从 ModelScope 仓库 `kuohao/gemma-4-26B-A4B-it-FP8` 拉取模型，首次启动自动写入 `.cache/modelscope/`，因此 fresh checkout 也可直接启动。
 
 ### 模型下载
 
 ```bash
-# 默认下载 Gemma-4-26B-A4B-it
+# 默认下载 BF16 源模型（供量化/调试使用）
 ./download-model.sh
 
 # 显式指定模型 ID
 ./download-model.sh google/gemma-4-26B-A4B-it
 
-# 模型缓存在 .cache/modelscope/hub/google/gemma-4-26B-A4B-it/
+# BF16 源模型缓存在 .cache/modelscope/hub/google/gemma-4-26B-A4B-it/
 # 与 vLLM 容器内 MODELSCOPE_CACHE 路径完全一致, 无需重复下载
 ```
+
+`./vllm.sh start gemma26b` 的默认运行模型仍是 `kuohao/gemma-4-26B-A4B-it-FP8`，与上面的 BF16 手动下载用途不同。
 
 ### 日常使用
 

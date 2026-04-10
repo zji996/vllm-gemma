@@ -6,9 +6,9 @@
 - 并行策略: `PP=2 / TP=1`
 - 默认上下文: `64K`
 - 默认显存利用率: `${GPU_MEMORY_UTILIZATION:-0.93}`
-- 模型路径: `/root/.cache/modelscope/google/gemma-4-26B-A4B-it-FP8`
+- 默认模型源: `kuohao/gemma-4-26B-A4B-it-FP8` (ModelScope repo id)
 
-这条路径已经在本机 `2× RTX 3080 20GB / SM86` 上完成实际推理验证，可稳定响应 `/v1/chat/completions`。
+该配置已经在本机 `2× RTX 3080 20GB / SM86` 上完成实际推理验证，可稳定响应 `/v1/chat/completions`。首次启动会自动下载到容器内 `MODELSCOPE_CACHE=/root/.cache/modelscope`，后续复用本地缓存。
 
 ## 为什么不再默认 TP=2
 
@@ -59,6 +59,12 @@
 ```bash
 docker compose build gemma26b
 ./vllm.sh start gemma26b
+```
+
+如需改回本地路径或切换到其他 ModelScope 仓库，可临时覆盖：
+
+```bash
+MS_GEMMA26B_MODEL_ID=/root/.cache/modelscope/kuohao/gemma-4-26B-A4B-it-FP8 ./vllm.sh start gemma26b
 ```
 
 如需覆盖默认值，可临时指定：
