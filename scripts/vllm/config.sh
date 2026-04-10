@@ -7,6 +7,8 @@ COMPOSE=(docker compose -f "${COMPOSE_FILE}")
 LOCK_FILE="${SCRIPT_DIR}/.vllm.lock"
 STOP_TIMEOUT="${STOP_TIMEOUT:-20}"
 PORT="${PORT:-${VLLM_HOST_PORT:-8000}}"
+MODEL_REGISTRY_FILE="${VLLM_MODEL_REGISTRY_FILE:-${VLLM_MODULE_DIR}/models.tsv}"
+DEFAULT_PROFILE=""
 
 declare -ag ALL_PROFILES=()
 declare -Ag MODEL_NAMES=()
@@ -25,15 +27,52 @@ register_model() {
     local desc="${5:?desc is required}"
     local icon="${6:?icon is required}"
     local gpu_count="${7:?gpu_count is required}"
+    local host_port="${8:-${VLLM_HOST_PORT:-8000}}"
 
     ALL_PROFILES+=("$profile")
     MODEL_NAMES["$profile"]="$name"
     MODEL_CTX["$profile"]="$ctx"
     MODEL_GPU["$profile"]="$gpu"
     MODEL_GPU_COUNT["$profile"]="$gpu_count"
-    MODEL_HOST_PORT["$profile"]="${VLLM_HOST_PORT:-8000}"
+    MODEL_HOST_PORT["$profile"]="$host_port"
     MODEL_DESC["$profile"]="$desc"
     MODEL_ICONS["$profile"]="$icon"
+
+    if [[ -z "$DEFAULT_PROFILE" ]]; then
+        DEFAULT_PROFILE="$profile"
+    fi
+}
+
+load_model_registry() {
+    local line
+    local profile
+    local name
+    local ctx
+    local gpu
+    local desc
+    local icon
+    local gpu_count
+    local host_port
+
+    if [[ ! -f "${MODEL_REGISTRY_FILE}" ]]; then
+        echo "Model registry file not found: ${MODEL_REGISTRY_FILE}" >&2
+        exit 1
+    fi
+
+    while IFS=$'\t' read -r profile name ctx gpu desc icon gpu_count host_port; do
+        [[ -n "${profile:-}" ]] || continue
+        [[ "${profile:0:1}" == "#" ]] && continue
+        register_model "$profile" "$name" "$ctx" "$gpu" "$desc" "$icon" "$gpu_count" "$host_port"
+    done < "${MODEL_REGISTRY_FILE}"
+
+    if [[ ${#ALL_PROFILES[@]} -eq 0 ]]; then
+        echo "Model registry is empty: ${MODEL_REGISTRY_FILE}" >&2
+        exit 1
+    fi
+}
+
+vllm_default_profile() {
+    printf '%s' "${DEFAULT_PROFILE}"
 }
 
 vllm_model_exists() {
@@ -78,7 +117,7 @@ vllm_is_single_gpu() {
 
 vllm_model_host_port() {
     local profile="${1:-}"
-    printf '%s' "${MODEL_HOST_PORT[$profile]:-8000}"
+    printf '%s' "${MODEL_HOST_PORT[$profile]:-${VLLM_HOST_PORT:-8000}}"
 }
 
 vllm_profile_index() {
@@ -110,5 +149,4 @@ vllm_models_markdown_table() {
     done
 }
 
-# ---- Gemma 4 Model Registry ----
-register_model "gemma26b" "Gemma-4-26B-A4B-it" "64K" "2×GPU" "⭐ 默认: PP=2 / TP=1 / Gemma4 patch" "💎" 2
+load_model_registry

@@ -4,6 +4,13 @@ run_tui() {
     cli_ensure_prerequisites
 
     local running
+    local default_profile
+    local default_name
+    local default_desc
+
+    default_profile="$(vllm_default_profile)"
+    default_name="$(vllm_model_name "$default_profile")"
+    default_desc="$(vllm_model_desc "$default_profile")"
 
     while true; do
         running=$(get_running_profile 2>/dev/null || echo "")
@@ -34,13 +41,13 @@ run_tui() {
             1|start)
                 echo ""
                 echo -e "${BOLD}可用部署 Profile:${NC}"
-                echo -e "  ${CYAN}说明:${NC} gemma26b 是 profile 名，对应模型 ${BOLD}Gemma-4-26B-A4B-it${NC}，默认并行策略为 ${BOLD}PP=2 / TP=1${NC}"
+                echo -e "  ${CYAN}说明:${NC} ${default_profile} 是当前默认 profile，对应模型 ${BOLD}${default_name}${NC}，说明为 ${BOLD}${default_desc}${NC}"
                 local i profile
                 for i in "${!ALL_PROFILES[@]}"; do
                     profile="${ALL_PROFILES[$i]}"
                     local status_tag=""
                     [[ "$profile" == "$running" ]] && status_tag=" ${GREEN}● RUNNING${NC}"
-                    echo -e "  ${BOLD}$((i+1)))${NC} ${profile}  ->  $(vllm_model_icon "$profile") $(vllm_model_name "$profile")  [默认 PP=2 / TP=1]  $(vllm_model_ctx "$profile")  $(vllm_model_gpu "$profile")${status_tag}"
+                    echo -e "  ${BOLD}$((i+1)))${NC} ${profile}  ->  $(vllm_model_icon "$profile") $(vllm_model_name "$profile")  [$(vllm_model_desc "$profile")]  $(vllm_model_ctx "$profile")  $(vllm_model_gpu "$profile")${status_tag}"
                 done
                 echo ""
                 echo -n "选择 profile (序号或名称)> "

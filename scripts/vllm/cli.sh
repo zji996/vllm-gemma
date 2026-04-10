@@ -17,12 +17,17 @@ vllm_api_host() {
 }
 
 cmd_list() {
+    local default_profile default_name default_desc
+    default_profile="$(vllm_default_profile)"
+    default_name="$(vllm_model_name "$default_profile")"
+    default_desc="$(vllm_model_desc "$default_profile")"
+
     echo ""
     echo -e "${BOLD}📦 Available Gemma 4 Deploy Profiles${NC}"
     echo -e "${BOLD}═══════════════════════════════════════════════════════════════════════════════${NC}"
     echo ""
     echo -e "  ${CYAN}Note:${NC} PROFILE 是 docker compose profile 名；MODEL 是它实际启动的模型。"
-    echo -e "        当前默认部署为 ${BOLD}gemma26b -> Gemma-4-26B-A4B-it${NC}，并行策略 ${BOLD}PP=2 / TP=1${NC}。"
+    echo -e "        当前默认部署为 ${BOLD}${default_profile} -> ${default_name}${NC}，说明: ${BOLD}${default_desc}${NC}。"
     echo ""
 
     local running
@@ -312,6 +317,9 @@ cmd_build() {
 }
 
 cmd_help() {
+    local default_profile
+    default_profile="$(vllm_default_profile)"
+
     echo ""
     echo -e "${BOLD}vLLM Model Launcher${NC} - Gemma 4 Multi-GPU / Single-GPU"
     echo ""
@@ -336,13 +344,13 @@ cmd_help() {
     echo "  --gpu 0            使用 GPU 0, 端口从 VLLM_HOST_PORT/VLLM_PORT_BASE 起算"
     echo "  --gpu 1            使用 GPU 1, 端口在基准端口基础上 +1"
     echo ""
-    echo -e "  ${YELLOW}规则:${NC} 双卡 profile (gemma26b) 忽略 --gpu"
+    echo -e "  ${YELLOW}规则:${NC} 双卡 profile 忽略 --gpu"
     echo -e "  ${YELLOW}端口映射:${NC} GPU 0 → base, GPU 1 → base+1；base 默认取 VLLM_HOST_PORT 或 8000"
     echo -e "  ${YELLOW}冲突处理:${NC} 目标端口有 vLLM 容器时自动替换"
     echo ""
     echo -e "${BOLD}Bench Options:${NC}"
     echo "  bench                           当前端口"
-    echo "  bench --config-id gemma26b      指定配置标签"
+    echo "  bench --config-id ${default_profile}      指定配置标签"
     echo "  bench --base-url URL            指定服务地址"
     echo ""
     echo -e "${BOLD}Environment Variables:${NC}"
@@ -360,9 +368,9 @@ cmd_help() {
     echo ""
     echo -e "${BOLD}Examples:${NC}"
     echo "  $0                              # 启动交互式 TUI"
-    echo "  $0 start gemma26b              # 启动 Gemma-4-26B MoE (双卡, 默认 PP=2/TP=1)"
+    echo "  $0 start ${default_profile}              # 启动默认 profile"
     echo "  $0 bench                       # 运行 benchmark"
-    echo "  MAX_MODEL_LEN=8192 $0 start gemma26b  # 自定义上下文长度"
+    echo "  MAX_MODEL_LEN=8192 $0 start ${default_profile}  # 自定义上下文长度"
     echo ""
 }
 
