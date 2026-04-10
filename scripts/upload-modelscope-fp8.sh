@@ -36,9 +36,9 @@ if [[ -f "${ENV_FILE}" ]]; then
     set +a
 fi
 
-SRC_DIR="${SRC_DIR:-${ROOT_DIR}/.cache/modelscope/kuohao/gemma-4-26B-A4B-it-FP8}"
 MS_USERNAME="${MS_USERNAME:-kuohao}"
 MS_REPO_NAME="${MS_REPO_NAME:-gemma-4-26B-A4B-it-FP8}"
+SRC_DIR="${SRC_DIR:-${ROOT_DIR}/.cache/modelscope/${MS_USERNAME}/${MS_REPO_NAME}}"
 MS_REPO_ID="${MS_REPO_ID:-${MS_USERNAME}/${MS_REPO_NAME}}"
 MS_ENDPOINT="${MS_ENDPOINT:-https://www.modelscope.cn}"
 UPLOAD_METHOD="${UPLOAD_METHOD:-auto}"

@@ -203,12 +203,16 @@ def resolve_model_path(model_path: str | None) -> Path:
         return p
 
     root = Path(__file__).resolve().parent.parent
+    env_model_path = os.environ.get("QUANTIZE_MODEL_PATH") or os.environ.get("DOWNLOAD_MODEL_PATH")
     candidates = [
+        Path(env_model_path).expanduser() if env_model_path else None,
         root / ".cache" / "modelscope" / "google" / "gemma-4-26B-A4B-it",
         root / ".cache" / "huggingface" / "hub" / "models--google--gemma-4-26B-A4B-it",
         Path.home() / ".cache" / "modelscope" / "google" / "gemma-4-26B-A4B-it",
     ]
     for p in candidates:
+        if p is None:
+            continue
         if (p / "config.json").is_file():
             info(f"自动检测到模型: {C.BOLD}{p}{C.NC}")
             return p
@@ -496,7 +500,7 @@ def main():
     parser.add_argument(
         "--model-path", type=str, default=None,
         help="BF16 源模型目录 (含 config.json + *.safetensors). "
-             "默认: 自动检测 .cache/modelscope/google/gemma-4-26B-A4B-it"
+             "默认: 自动检测 QUANTIZE_MODEL_PATH / DOWNLOAD_MODEL_PATH / .cache/modelscope/google/gemma-4-26B-A4B-it"
     )
     parser.add_argument(
         "--output-dir", type=str, default=None,

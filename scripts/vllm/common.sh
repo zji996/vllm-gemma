@@ -145,7 +145,8 @@ wait_for_port_free() {
 # GPU → 端口映射: GPU 0 → 8000, GPU 1 → 8001
 gpu_to_port() {
     local gpu_id="${1:?gpu_id is required}"
-    echo $(( 8000 + gpu_id ))
+    local base_port="${VLLM_PORT_BASE:-${VLLM_HOST_PORT:-8000}}"
+    echo $(( base_port + gpu_id ))
 }
 
 # 从 docker ps 的端口字段中提取宿主机端口

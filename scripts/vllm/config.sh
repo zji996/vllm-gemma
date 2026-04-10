@@ -6,7 +6,7 @@ COMPOSE_FILE="${SCRIPT_DIR}/docker-compose.yml"
 COMPOSE=(docker compose -f "${COMPOSE_FILE}")
 LOCK_FILE="${SCRIPT_DIR}/.vllm.lock"
 STOP_TIMEOUT="${STOP_TIMEOUT:-20}"
-PORT="${PORT:-8000}"
+PORT="${PORT:-${VLLM_HOST_PORT:-8000}}"
 
 declare -ag ALL_PROFILES=()
 declare -Ag MODEL_NAMES=()
@@ -31,7 +31,7 @@ register_model() {
     MODEL_CTX["$profile"]="$ctx"
     MODEL_GPU["$profile"]="$gpu"
     MODEL_GPU_COUNT["$profile"]="$gpu_count"
-    MODEL_HOST_PORT["$profile"]="8000"
+    MODEL_HOST_PORT["$profile"]="${VLLM_HOST_PORT:-8000}"
     MODEL_DESC["$profile"]="$desc"
     MODEL_ICONS["$profile"]="$icon"
 }

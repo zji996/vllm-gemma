@@ -7,7 +7,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CACHE_DIR="${SCRIPT_DIR}/.cache/modelscope"
-MODEL_ID="${1:-google/gemma-4-26B-A4B-it}"
+MODEL_ID="${1:-${DOWNLOAD_MODEL_ID:-google/gemma-4-26B-A4B-it}}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -129,7 +129,7 @@ show_help() {
     echo -e "${BOLD}Usage:${NC} $0 [model_id]"
     echo ""
     echo -e "${BOLD}Arguments:${NC}"
-    echo "  model_id    ModelScope model ID (default: google/gemma-4-26B-A4B-it)"
+    echo "  model_id    ModelScope model ID (default: DOWNLOAD_MODEL_ID or google/gemma-4-26B-A4B-it)"
     echo ""
     echo -e "${BOLD}Examples:${NC}"
     echo "  $0                                    # 下载 Gemma-4-26B-A4B-it"

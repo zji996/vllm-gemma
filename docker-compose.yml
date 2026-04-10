@@ -191,7 +191,7 @@ x-base-dual-ms-gemma4patch-wheel: &base-dual-ms-gemma4patch-wheel
   environment: *env-modelscope
   volumes: *common-volumes
   ports:
-    - "8000:8000"
+    - "${VLLM_HOST_PORT:-8000}:8000"
   ipc: host
   deploy: *deploy-dual-gpu
   restart: unless-stopped

@@ -12,6 +12,10 @@ success() { echo -e "${GREEN}✔${NC} $*"; }
 warn()    { echo -e "${YELLOW}⚠${NC} $*"; }
 error()   { echo -e "${RED}✖${NC} $*" >&2; }
 
+vllm_api_host() {
+    printf '%s' "${VLLM_HOST:-127.0.0.1}"
+}
+
 cmd_list() {
     echo ""
     echo -e "${BOLD}📦 Available Gemma 4 Deploy Profiles${NC}"
@@ -51,7 +55,7 @@ cmd_list() {
 
     echo ""
     echo -e "  ${BOLD}Usage:${NC} $0 start <profile> [--gpu 0|1]"
-    echo -e "  ${YELLOW}Tip:${NC}   单卡 profile 可用 --gpu 1 切换到 GPU 1 (端口 8001)"
+    echo -e "  ${YELLOW}Tip:${NC}   单卡 profile 可用 --gpu 1 切换到 GPU 1 (端口基于 VLLM_HOST_PORT / VLLM_PORT_BASE 自动递增)"
     echo ""
 }
 
@@ -193,13 +197,13 @@ cmd_start() {
     echo ""
     success "Model container started."
     echo ""
-    echo -e "  ${CYAN}API Endpoint:${NC}  http://localhost:${service_port}/v1"
+    echo -e "  ${CYAN}API Endpoint:${NC}  http://$(vllm_api_host):${service_port}/v1"
     echo -e "  ${CYAN}Model Name:${NC}    ${service_model_name}"
     echo -e "  ${CYAN}Model Source:${NC}  ${service_model_source}"
     echo -e "  ${CYAN}API Key:${NC}       ${service_api_key:-<not set>} ${YELLOW}(set API_KEY in .env to override)${NC}"
     echo ""
     echo -e "  ${BOLD}Quick test:${NC}"
-    echo -e "  curl http://localhost:${service_port}/v1/chat/completions \\"
+    echo -e "  curl http://$(vllm_api_host):${service_port}/v1/chat/completions \\"
     echo -e "    -H 'Authorization: Bearer ${service_api_key:-<your-api-key>}' \\"
     echo -e "    -H 'Content-Type: application/json' \\"
     echo -e "    -d '{\"model\":\"${service_model_name}\",\"messages\":[{\"role\":\"user\",\"content\":\"Hello!\"}]}'"
@@ -329,11 +333,11 @@ cmd_help() {
     echo "  sync-readme        自动更新 README 中的模型表"
     echo ""
     echo -e "${BOLD}GPU Selection:${NC}  ${CYAN}(单卡 profile 专用)${NC}"
-    echo "  --gpu 0            使用 GPU 0, 端口 8000 (默认)"
-    echo "  --gpu 1            使用 GPU 1, 端口 8001"
+    echo "  --gpu 0            使用 GPU 0, 端口从 VLLM_HOST_PORT/VLLM_PORT_BASE 起算"
+    echo "  --gpu 1            使用 GPU 1, 端口在基准端口基础上 +1"
     echo ""
     echo -e "  ${YELLOW}规则:${NC} 双卡 profile (gemma26b) 忽略 --gpu"
-    echo -e "  ${YELLOW}端口映射:${NC} GPU 0 → 8000, GPU 1 → 8001 (固定)"
+    echo -e "  ${YELLOW}端口映射:${NC} GPU 0 → base, GPU 1 → base+1；base 默认取 VLLM_HOST_PORT 或 8000"
     echo -e "  ${YELLOW}冲突处理:${NC} 目标端口有 vLLM 容器时自动替换"
     echo ""
     echo -e "${BOLD}Bench Options:${NC}"
@@ -347,8 +351,12 @@ cmd_help() {
     echo "  MAX_NUM_SEQS             最大并发请求数 (default: 100)"
     echo "  API_KEY                  API 密钥 (default from .env/.env.example: abc123)"
     echo "  SERVED_MODEL_NAME        OpenAI 兼容 model 名称 (default from .env/.env.example: gemma)"
+    echo "  VLLM_HOST                启动成功后展示/测试使用的主机名 (default: 127.0.0.1)"
+    echo "  VLLM_HOST_PORT           服务端口/基准端口 (default: 8000)"
+    echo "  VLLM_PORT_BASE           单卡多端口映射基准端口 (default: same as VLLM_HOST_PORT)"
+    echo "  MS_GEMMA26B_MODEL_ID     gemma26b 默认 ModelScope repo/path"
+    echo "  DOWNLOAD_MODEL_ID        ./download-model.sh 默认 BF16 源模型"
     echo "  STOP_TIMEOUT             停止端口释放超时秒数 (default: 20)"
-    echo "  PORT                     服务端口 (default: 8000)"
     echo ""
     echo -e "${BOLD}Examples:${NC}"
     echo "  $0                              # 启动交互式 TUI"
