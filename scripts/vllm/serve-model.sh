@@ -33,13 +33,13 @@ fi
 ARGS=("${MODEL}")
 
 # ---- 基础参数 ----
-append_flag "--served-model-name" "${VLLM_SERVED_MODEL_NAME:-gemma}"
+append_flag "--served-model-name" "${VLLM_SERVED_MODEL_NAME:-}"
 append_flag "--tensor-parallel-size" "${VLLM_TENSOR_PARALLEL_SIZE:-}"
 append_flag "--pipeline-parallel-size" "${VLLM_PIPELINE_PARALLEL_SIZE:-}"
 append_flag "--gpu-memory-utilization" "${VLLM_GPU_MEMORY_UTILIZATION:-}"
 append_flag "--max-model-len" "${VLLM_MAX_MODEL_LEN:-}"
 append_flag "--max-num-seqs" "${VLLM_MAX_NUM_SEQS:-}"
-append_flag "--api-key" "${VLLM_API_KEY:-abc123}"
+append_flag "--api-key" "${VLLM_API_KEY:-}"
 
 # ---- Gemma 4 tool calling ----
 if is_truthy "${SERVE_ENABLE_AUTO_TOOL_CHOICE:-true}"; then

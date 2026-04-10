@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import statistics
 import sys
 import time
@@ -166,8 +167,8 @@ def run_round(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
-    parser.add_argument("--api-key", default="abc123")
-    parser.add_argument("--model", default="gemma")
+    parser.add_argument("--api-key", default=os.environ.get("API_KEY", "abc123"))
+    parser.add_argument("--model", default=os.environ.get("SERVED_MODEL_NAME", "gemma"))
     parser.add_argument("--concurrency", default="1,2,4")
     parser.add_argument("--requests-per-level", type=int, default=8)
     parser.add_argument("--max-tokens", type=int, default=96)

@@ -186,8 +186,8 @@ cmd_start() {
     service_api_key=$(get_service_env "$profile" "VLLM_API_KEY" 2>/dev/null || true)
     service_model_source=$(get_service_env "$profile" "VLLM_MODEL" 2>/dev/null || true)
 
-    service_model_name="${service_model_name:-$(vllm_model_name "$profile")}"
-    service_api_key="${service_api_key:-${API_KEY:-abc123}}"
+    service_model_name="${service_model_name:-${SERVED_MODEL_NAME:-$(vllm_model_name "$profile")}}"
+    service_api_key="${service_api_key:-${API_KEY:-}}"
     service_model_source="${service_model_source:-unknown}"
 
     echo ""
@@ -196,11 +196,11 @@ cmd_start() {
     echo -e "  ${CYAN}API Endpoint:${NC}  http://localhost:${service_port}/v1"
     echo -e "  ${CYAN}Model Name:${NC}    ${service_model_name}"
     echo -e "  ${CYAN}Model Source:${NC}  ${service_model_source}"
-    echo -e "  ${CYAN}API Key:${NC}       ${service_api_key} ${YELLOW}(set API_KEY in .env to override)${NC}"
+    echo -e "  ${CYAN}API Key:${NC}       ${service_api_key:-<not set>} ${YELLOW}(set API_KEY in .env to override)${NC}"
     echo ""
     echo -e "  ${BOLD}Quick test:${NC}"
     echo -e "  curl http://localhost:${service_port}/v1/chat/completions \\"
-    echo -e "    -H 'Authorization: Bearer ${service_api_key}' \\"
+    echo -e "    -H 'Authorization: Bearer ${service_api_key:-<your-api-key>}' \\"
     echo -e "    -H 'Content-Type: application/json' \\"
     echo -e "    -d '{\"model\":\"${service_model_name}\",\"messages\":[{\"role\":\"user\",\"content\":\"Hello!\"}]}'"
     echo ""
@@ -345,7 +345,8 @@ cmd_help() {
     echo "  GPU_MEMORY_UTILIZATION   GPU 显存利用率 (default: 0.93)"
     echo "  MAX_MODEL_LEN            最大上下文长度 (default: 65536)"
     echo "  MAX_NUM_SEQS             最大并发请求数 (default: 100)"
-    echo "  API_KEY                  API 密钥 (default: abc123; 可在 .env 中覆盖)"
+    echo "  API_KEY                  API 密钥 (default from .env/.env.example: abc123)"
+    echo "  SERVED_MODEL_NAME        OpenAI 兼容 model 名称 (default from .env/.env.example: gemma)"
     echo "  STOP_TIMEOUT             停止端口释放超时秒数 (default: 20)"
     echo "  PORT                     服务端口 (default: 8000)"
     echo ""
