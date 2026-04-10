@@ -18,6 +18,7 @@ build-marlin.log
 *.swp
 *.swo
 *~
+.env
 
 # OS
 .DS_Store
