@@ -48,9 +48,15 @@ fi
 append_flag "--tool-call-parser" "${SERVE_TOOL_CALL_PARSER:-gemma4}"
 
 # ---- Gemma 4 thinking / reasoning ----
-if is_truthy "${SERVE_ENABLE_THINKING:-false}"; then
-    append_flag "--reasoning-parser" "${SERVE_REASONING_PARSER:-gemma4}"
-fi
+# Keep the reasoning parser enabled independently from request-side thinking.
+# Default requests remain non-thinking unless the prompt/template injects
+# `<|think|>`, but when a request does opt into thinking we still want the
+# OpenAI response to split thought text out of `message.content`.
+append_flag "--reasoning-parser" "${SERVE_REASONING_PARSER:-gemma4}"
+# Optional, patched-parser-only heuristic:
+# when enabled, salvage explicit trailing markers like `Final Answer: ...`
+# if the model omitted `<channel|>`. Default stays conservative/off.
+export SERVE_GEMMA4_HEURISTIC_FINAL_ANSWER="${SERVE_GEMMA4_HEURISTIC_FINAL_ANSWER:-false}"
 
 # ---- 多模态 ----
 append_flag "--mm-processor-cache-type" "${SERVE_MM_PROCESSOR_CACHE_TYPE:-${VLLM_MM_PROCESSOR_CACHE_TYPE:-}}"

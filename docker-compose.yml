@@ -19,7 +19,9 @@ x-env-modelscope: &env-modelscope
   NVIDIA_VISIBLE_DEVICES: all
   MODELSCOPE_CACHE: /root/.cache/modelscope
   TRITON_CACHE_DIR: /root/.triton/cache
-  VLLM_USE_MODELSCOPE: "True"
+  VLLM_USE_MODELSCOPE: ${VLLM_USE_MODELSCOPE:-False}
+  HF_HUB_OFFLINE: ${HF_HUB_OFFLINE:-1}
+  TRANSFORMERS_OFFLINE: ${TRANSFORMERS_OFFLINE:-1}
 
 # Environment: HuggingFace source (for HF-only models)
 x-env-huggingface: &env-huggingface
@@ -39,9 +41,12 @@ x-vllm-serve-common: &vllm-serve-common
   # Gemma 4 tool calling
   SERVE_ENABLE_AUTO_TOOL_CHOICE: "true"
   SERVE_TOOL_CALL_PARSER: gemma4
-  # Thinking mode: 默认关闭, 设 true 启用
-  SERVE_ENABLE_THINKING: ${ENABLE_THINKING:-false}
+  # Keep the reasoning parser on so request-level thinking can be split out of
+  # message.content without making default requests auto-think.
   SERVE_REASONING_PARSER: gemma4
+  # Optional parser-side salvage for explicit `Final Answer:` tails when the
+  # model omitted `<channel|>`. Keep it off by default.
+  SERVE_GEMMA4_HEURISTIC_FINAL_ANSWER: ${SERVE_GEMMA4_HEURISTIC_FINAL_ANSWER:-false}
   # 性能优化
   SERVE_ASYNC_SCHEDULING: "true"
 
@@ -217,10 +222,9 @@ services:
     profiles: ["gemma26b"]
     environment:
       <<: [*env-modelscope, *vllm-gemma26b-mm-pp2]
-      # Default to the published ModelScope repo id so the project works
-      # out-of-the-box on a fresh machine. First launch will populate
-      # MODELSCOPE_CACHE automatically.
-      VLLM_MODEL: ${MS_GEMMA26B_MODEL_ID:-kuohao/gemma-4-26B-A4B-it-FP8}
+      # Startup is launcher-managed: vllm.sh syncs/patches the model snapshot
+      # into MODELSCOPE_CACHE and then passes a local in-container path here.
+      VLLM_MODEL: ${MS_GEMMA26B_MODEL_PATH:-/root/.cache/modelscope/kuohao/gemma-4-26B-A4B-it-FP8}
       VLLM_GPU_MEMORY_UTILIZATION: ${GPU_MEMORY_UTILIZATION:-0.93}
       # 26B 不支持 audio, 仅 image
       VLLM_LIMIT_MM_PER_PROMPT: '${LIMIT_MM:-{"image":100}}'

@@ -138,6 +138,8 @@ cmd_start() {
         exit 1
     fi
 
+    prepare_profile_model "$profile"
+
     PORT="$(vllm_model_host_port "$profile")"
 
     # 应用 GPU 选择
@@ -152,6 +154,7 @@ cmd_start() {
     if [[ -n "$running" ]]; then
         if [[ "$running" == "$profile" ]]; then
             warn "Profile '${profile}' is already running!"
+            info "Use '${BOLD}$0 restart${NC}' to re-create the container and re-apply local model sync/patches."
             echo ""
             cmd_status
             return 0
@@ -264,9 +267,10 @@ cmd_restart() {
         exit 1
     fi
 
-    info "Restarting profile: ${BOLD}${running}${NC} ..."
-    "${COMPOSE[@]}" --profile "$running" restart
-    success "Restarted."
+    info "Recreating profile: ${BOLD}${running}${NC} ..."
+    cmd_stop
+    echo ""
+    cmd_start "$running"
 }
 
 cmd_status() {
@@ -362,8 +366,10 @@ cmd_help() {
     echo "  VLLM_HOST                启动成功后展示/测试使用的主机名 (default: 127.0.0.1)"
     echo "  VLLM_HOST_PORT           服务端口/基准端口 (default: 8000)"
     echo "  VLLM_PORT_BASE           单卡多端口映射基准端口 (default: same as VLLM_HOST_PORT)"
-    echo "  MS_GEMMA26B_MODEL_ID     gemma26b 默认 ModelScope repo/path"
+    echo "  MS_GEMMA26B_MODEL_ID     gemma26b 的远端 ModelScope repo id 或本地路径"
+    echo "  MS_GEMMA26B_MODEL_PATH   传给容器的本地模型目录 (通常由启动脚本自动设置)"
     echo "  DOWNLOAD_MODEL_ID        ./download-model.sh 默认 BF16 源模型"
+    echo "  VLLM_MODEL_SYNC_POLICY   if_missing | always | never (default: if_missing)"
     echo "  STOP_TIMEOUT             停止端口释放超时秒数 (default: 20)"
     echo ""
     echo -e "${BOLD}Examples:${NC}"

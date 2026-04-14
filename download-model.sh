@@ -52,7 +52,7 @@ ensure_venv() {
 download_model() {
     local model_id="$1"
     local cache_dir="$2"
-    local model_dir="${cache_dir}/hub/${model_id}"
+    local model_dir="${cache_dir}/${model_id}"
 
     echo ""
     echo -e "${BOLD}╔══════════════════════════════════════════════╗${NC}"
@@ -77,7 +77,7 @@ download_model() {
     # 使用 modelscope snapshot_download，天然幂等：
     # - 已下载的文件会跳过
     # - 部分下载的文件会断点续传
-    # - cache_dir 结构与 vLLM 容器内 MODELSCOPE_CACHE 完全一致
+    # - 返回路径与项目 .cache/modelscope/<repo_id>/ 一致
     "${PYTHON}" -c "
 from modelscope import snapshot_download
 import os
@@ -137,8 +137,8 @@ show_help() {
     echo ""
     echo -e "${BOLD}Notes:${NC}"
     echo "  - 自动创建 .cache/venv/ 虚拟环境安装 modelscope SDK"
-    echo "  - 模型下载到 .cache/modelscope/hub/<model_id>/"
-    echo "  - 与 vLLM 容器内 MODELSCOPE_CACHE 路径完全一致"
+    echo "  - 模型下载到 .cache/modelscope/<model_id>/"
+    echo "  - 与 vLLM 容器内 /root/.cache/modelscope/<model_id>/ 路径完全一致"
     echo "  - 支持断点续传, 重复运行不会重新下载已有文件"
     echo ""
 }

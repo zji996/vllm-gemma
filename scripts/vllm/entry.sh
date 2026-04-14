@@ -5,6 +5,7 @@ source "${VLLM_MODULE_DIR}/config.sh"
 source "${VLLM_MODULE_DIR}/common.sh"
 source "${VLLM_MODULE_DIR}/cli.sh"
 source "${VLLM_MODULE_DIR}/tui.sh"
+source "${VLLM_MODULE_DIR}/modelscope.sh"
 
 vllm_main() {
     local cmd="${1:-}"
