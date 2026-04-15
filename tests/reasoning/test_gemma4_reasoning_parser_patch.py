@@ -26,6 +26,20 @@ patch = load_patch_module()
 
 
 class Gemma4ReasoningParserPatchTests(unittest.TestCase):
+    def test_request_expects_reasoning_only_for_medium_and_high(self) -> None:
+        self.assertFalse(
+            patch.request_expects_reasoning_for_tests(reasoning_effort="low")
+        )
+        self.assertFalse(
+            patch.request_expects_reasoning_for_tests(reasoning_cfg_effort="low")
+        )
+        self.assertTrue(
+            patch.request_expects_reasoning_for_tests(reasoning_effort="medium")
+        )
+        self.assertTrue(
+            patch.request_expects_reasoning_for_tests(reasoning_cfg_effort="high")
+        )
+
     def test_non_thinking_output_is_left_as_content(self) -> None:
         reasoning, content = patch.simulate_patched_extract_reasoning(
             "56088",
@@ -41,6 +55,17 @@ class Gemma4ReasoningParserPatchTests(unittest.TestCase):
         )
         self.assertEqual(reasoning, "The user asks for multiplication.")
         self.assertIsNone(content)
+
+    def test_medium_effort_thought_only_output_can_use_heuristic(self) -> None:
+        reasoning, content = patch.simulate_patched_extract_reasoning(
+            "thought\nRespond briefly.\nFinal Answer: hello",
+            expects_reasoning=patch.request_expects_reasoning_for_tests(
+                reasoning_effort="medium"
+            ),
+            heuristic_enabled=True,
+        )
+        self.assertEqual(reasoning, "Respond briefly.")
+        self.assertEqual(content, "hello")
 
     def test_thought_prefix_followed_by_channel_becomes_final_content(self) -> None:
         reasoning, content = patch.simulate_patched_extract_reasoning(

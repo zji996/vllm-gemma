@@ -44,6 +44,10 @@ x-vllm-serve-common: &vllm-serve-common
   # Keep the reasoning parser on so request-level thinking can be split out of
   # message.content without making default requests auto-think.
   SERVE_REASONING_PARSER: gemma4
+  # Required for request-side `thinking_token_budget` to work. Gemma 4 uses a
+  # `<|channel>thought\\n ... <channel|>` reasoning span in generated output.
+  SERVE_REASONING_CONFIG: >-
+    {"reasoning_start_str":"<|channel>thought\n","reasoning_end_str":"<channel|>"}
   # Optional parser-side salvage for explicit `Final Answer:` tails when the
   # model omitted `<channel|>`. Keep it off by default.
   SERVE_GEMMA4_HEURISTIC_FINAL_ANSWER: ${SERVE_GEMMA4_HEURISTIC_FINAL_ANSWER:-false}

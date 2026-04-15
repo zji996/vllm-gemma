@@ -48,6 +48,69 @@ TEMPLATE_FIXTURE = textwrap.dedent(
     """
 )
 
+LEGACY_PATCHED_TEMPLATE_FIXTURE = textwrap.dedent(
+    """\
+    {%- set ns = namespace(prev_message_type=None) -%}
+    {%- set ns_request = namespace(enable_thinking=false) -%}
+    {%- if enable_thinking is defined -%}
+        {%- set ns_request.enable_thinking = enable_thinking -%}
+    {%- elif reasoning_effort is defined and reasoning_effort in ['medium', 'high'] -%}
+        {%- set ns_request.enable_thinking = true -%}
+    {%- endif -%}
+    {{- bos_token -}}
+    {%- if ns_request.enable_thinking or tools or messages[0]['role'] in ['system', 'developer'] -%}
+        {{- '<|turn>system\\n' -}}
+        {%- if ns_request.enable_thinking -%}
+            {{- '<|think|>\\n' -}}
+            {%- if not tools -%}
+                {{- 'Keep the reasoning extremely brief, at most 2 short lines. Do not repeat calculations. Then end with a final line formatted exactly as Final Answer: <answer>.\\n' -}}
+            {%- endif -%}
+        {%- endif -%}
+        {{- '<turn|>\\n' -}}
+    {%- endif %}
+    {%- if add_generation_prompt -%}
+        {%- if not ns_request.enable_thinking and ns.prev_message_type != 'tool_call' -%}
+            {{- '<|channel>thought\\n<channel|>' -}}
+        {%- endif -%}
+    {%- endif -%}
+    """
+)
+
+LEGACY_DUPLICATED_TEMPLATE_FIXTURE = textwrap.dedent(
+    """\
+    {%- set ns = namespace(prev_message_type=None) -%}
+    {%- set ns_request = namespace(enable_thinking=false, reasoning_effort='none') -%}
+    {%- if reasoning_effort is defined and reasoning_effort in ['none', 'low', 'medium', 'high'] -%}
+        {%- set ns_request.reasoning_effort = reasoning_effort -%}
+    {%- endif -%}
+    {%- if enable_thinking is defined -%}
+        {%- set ns_request.enable_thinking = enable_thinking -%}
+        {%- if ns_request.enable_thinking and ns_request.reasoning_effort == 'none' -%}
+            {%- set ns_request.reasoning_effort = 'medium' -%}
+        {%- endif -%}
+    {%- elif ns_request.reasoning_effort in ['low', 'medium', 'high'] -%}
+        {%- set ns_request.enable_thinking = true -%}
+    {%- endif -%}
+    {%- set ns_request = namespace(enable_thinking=false) -%}
+    {%- if enable_thinking is defined -%}
+        {%- set ns_request.enable_thinking = enable_thinking -%}
+    {%- elif reasoning_effort is defined and reasoning_effort in ['medium', 'high'] -%}
+        {%- set ns_request.enable_thinking = true -%}
+    {%- endif -%}
+    {{- bos_token -}}
+    {%- if ns_request.enable_thinking or tools or messages[0]['role'] in ['system', 'developer'] -%}
+        {{- '<|turn>system\\n' -}}
+        {%- if ns_request.enable_thinking -%}
+            {{- '<|think|>\\n' -}}
+            {%- if not tools -%}
+                {{- 'Keep the reasoning extremely brief, at most 2 short lines. Do not repeat calculations. Then end with a final line formatted exactly as Final Answer: <answer>.\\n' -}}
+            {%- endif -%}
+        {%- endif -%}
+        {{- '<turn|>\\n' -}}
+    {%- endif %}
+    """
+)
+
 
 def render_template(source: str, **kwargs: object) -> str:
     environment = jinja2.Environment(
@@ -87,11 +150,31 @@ class Gemma4ChatTemplatePatchTests(unittest.TestCase):
             self.assertTrue(patch.patch_template(template_path))
             self.assertFalse(patch.patch_template(template_path))
 
+    def test_patch_upgrades_legacy_patched_template(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            template_path = pathlib.Path(temp_dir) / "chat_template.jinja"
+            template_path.write_text(LEGACY_PATCHED_TEMPLATE_FIXTURE, encoding="utf-8")
+            self.assertTrue(patch.patch_template(template_path))
+            upgraded = template_path.read_text(encoding="utf-8")
+            self.assertIn("reasoning_effort='none'", upgraded)
+            self.assertIn("Keep the reasoning brief.", upgraded)
+            self.assertNotIn("at most 2 short lines", upgraded)
+            self.assertEqual(upgraded.count("ns_request = namespace"), 1)
+
+    def test_patch_removes_legacy_duplicate_ns_block(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            template_path = pathlib.Path(temp_dir) / "chat_template.jinja"
+            template_path.write_text(LEGACY_DUPLICATED_TEMPLATE_FIXTURE, encoding="utf-8")
+            self.assertTrue(patch.patch_template(template_path))
+            upgraded = template_path.read_text(encoding="utf-8")
+            self.assertEqual(upgraded.count("ns_request = namespace"), 1)
+
     def test_reasoning_effort_medium_enables_thinking(self) -> None:
         _, patched_source = self.patch_fixture()
         rendered = render_template(patched_source, reasoning_effort="medium")
         self.assertIn("<|think|>", rendered)
         self.assertIn("Final Answer: <answer>", rendered)
+        self.assertIn("Keep the reasoning brief.", rendered)
         self.assertNotIn("<|channel>thought\n<channel|>", rendered)
 
     def test_reasoning_effort_low_stays_non_thinking(self) -> None:
@@ -101,14 +184,29 @@ class Gemma4ChatTemplatePatchTests(unittest.TestCase):
         self.assertNotIn("Final Answer: <answer>", rendered)
         self.assertIn("<|channel>thought\n<channel|>", rendered)
 
+    def test_reasoning_effort_none_stays_non_thinking(self) -> None:
+        _, patched_source = self.patch_fixture()
+        rendered = render_template(patched_source, reasoning_effort="none")
+        self.assertNotIn("<|think|>", rendered)
+        self.assertNotIn("Final Answer: <answer>", rendered)
+        self.assertIn("<|channel>thought\n<channel|>", rendered)
+
+    def test_reasoning_effort_high_enables_thinking(self) -> None:
+        _, patched_source = self.patch_fixture()
+        rendered = render_template(patched_source, reasoning_effort="high")
+        self.assertIn("<|think|>", rendered)
+        self.assertIn("Keep the reasoning brief.", rendered)
+        self.assertIn("Final Answer: <answer>", rendered)
+
     def test_explicit_enable_thinking_takes_priority(self) -> None:
         _, patched_source = self.patch_fixture()
         rendered = render_template(
             patched_source,
             enable_thinking=True,
-            reasoning_effort="low",
+            reasoning_effort="none",
         )
         self.assertIn("<|think|>", rendered)
+        self.assertIn("Keep the reasoning brief.", rendered)
         self.assertNotIn("<|channel>thought\n<channel|>", rendered)
 
     def test_hint_is_skipped_when_tools_are_present(self) -> None:

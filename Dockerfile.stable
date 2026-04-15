@@ -93,6 +93,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     fi
 RUN python3 /opt/vllm-tools/scripts/patch-vllm-gemma4-fp8.py
 RUN python3 /opt/vllm-tools/scripts/patch-vllm-gemma4-reasoning-parser.py
+RUN python3 /opt/vllm-tools/scripts/patch-vllm-openai-reasoning-budget.py
 
 
 FROM base AS runtime-base

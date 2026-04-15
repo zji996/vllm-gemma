@@ -72,6 +72,19 @@ def heuristic_final_answer_enabled() -> bool:
     return is_truthy_env(os.environ.get("SERVE_GEMMA4_HEURISTIC_FINAL_ANSWER"))
 
 
+def request_expects_reasoning_for_tests(
+    *,
+    enable_thinking: bool = False,
+    reasoning_effort: str | None = None,
+    reasoning_cfg_effort: str | None = None,
+) -> bool:
+    if enable_thinking:
+        return True
+    if reasoning_effort in ("medium", "high"):
+        return True
+    return reasoning_cfg_effort in ("medium", "high")
+
+
 def strip_thought_label_for_tests(text: str) -> str:
     if text.startswith("thought\n"):
         return text[len("thought\n") :]
@@ -300,12 +313,12 @@ def _request_expects_reasoning(request: "ChatCompletionRequest | ResponsesReques
         return True
 
     reasoning_effort = getattr(request, "reasoning_effort", None)
-    if reasoning_effort in ("medium", "high"):
+    if reasoning_effort in ("low", "medium", "high"):
         return True
 
     reasoning_cfg = getattr(request, "reasoning", None)
     reasoning_cfg_effort = getattr(reasoning_cfg, "effort", None)
-    return reasoning_cfg_effort in ("medium", "high")
+    return reasoning_cfg_effort in ("low", "medium", "high")
 
 
 def _clean_content(text: str | None) -> str | None:

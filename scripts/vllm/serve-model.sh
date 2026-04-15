@@ -53,6 +53,9 @@ append_flag "--tool-call-parser" "${SERVE_TOOL_CALL_PARSER:-gemma4}"
 # `<|think|>`, but when a request does opt into thinking we still want the
 # OpenAI response to split thought text out of `message.content`.
 append_flag "--reasoning-parser" "${SERVE_REASONING_PARSER:-gemma4}"
+# Reasoning config is separate from the parser itself. It provides the start/end
+# delimiters required by vLLM's hard `thinking_token_budget` control.
+append_flag "--reasoning-config" "${SERVE_REASONING_CONFIG:-}"
 # Optional, patched-parser-only heuristic:
 # when enabled, salvage explicit trailing markers like `Final Answer: ...`
 # if the model omitted `<channel|>`. Default stays conservative/off.
