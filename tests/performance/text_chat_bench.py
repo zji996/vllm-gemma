@@ -58,13 +58,15 @@ def make_request(
         "stream": False,
     }
     body = json.dumps(payload).encode("utf-8")
+    headers = {
+        "Content-Type": "application/json",
+    }
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
     req = urllib.request.Request(
         f"{base_url.rstrip('/')}/v1/chat/completions",
         data=body,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}",
-        },
+        headers=headers,
         method="POST",
     )
 
@@ -169,7 +171,7 @@ def main() -> int:
     default_host = os.environ.get("VLLM_HOST", "127.0.0.1")
     default_port = os.environ.get("VLLM_HOST_PORT", "8000")
     parser.add_argument("--base-url", default=os.environ.get("VLLM_BASE_URL", f"http://{default_host}:{default_port}"))
-    parser.add_argument("--api-key", default=os.environ.get("API_KEY", "abc123"))
+    parser.add_argument("--api-key", default=os.environ.get("API_KEY", ""))
     parser.add_argument("--model", default=os.environ.get("SERVED_MODEL_NAME", "gemma"))
     parser.add_argument("--concurrency", default="1,2,4")
     parser.add_argument("--requests-per-level", type=int, default=8)

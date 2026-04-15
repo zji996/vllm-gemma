@@ -14,6 +14,8 @@
 - `reasoning_effort=medium|high` 才进入 `thinking`
 - 服务默认开启 `--reasoning-parser gemma4`
 - 服务默认提供 `--reasoning-config`，以支持 vLLM 的 `thinking_token_budget`
+- docker compose 默认只绑定到 `127.0.0.1`
+- 如果未设置 `API_KEY`，服务默认以本地无鉴权模式启动
 
 如果你只想先跑起来，直接看下面的 Quick Start。
 
@@ -117,7 +119,7 @@ VLLM_MODEL_SYNC_POLICY=never ./vllm.sh start gemma26b
 
 这条线的更多背景可以看：
 
-- [thinking-mode-behavior.md](/home/zji/docker/vllm-gemma/docs/thinking-mode-behavior.md)
+- [thinking-mode-behavior.md](docs/thinking-mode-behavior.md)
 
 ## 测试与 Benchmark
 
@@ -140,9 +142,9 @@ python3 tests/performance/gemma4_reasoning_tool_bench.py \
 
 现有记录：
 
-- [benchmark-baseline.md](/home/zji/docker/vllm-gemma/docs/benchmark-baseline.md)
-- [benchmark-reasoning-tool-8192.md](/home/zji/docker/vllm-gemma/docs/benchmark-reasoning-tool-8192.md)
-- [gemma4-reasoning-tool-1024-20260415.json](/home/zji/docker/vllm-gemma/results/benchmarks/gemma4-reasoning-tool-1024-20260415.json)
+- [benchmark-baseline.md](docs/benchmark-baseline.md)
+- [benchmark-reasoning-tool-8192.md](docs/benchmark-reasoning-tool-8192.md)
+- `results/benchmarks/gemma4-reasoning-tool-1024-20260415.json`
 
 ## 把本地模型上传到 ModelScope
 
@@ -253,4 +255,4 @@ VLLM_MODEL_SYNC_POLICY=always ./vllm.sh restart
 
 更细的项目说明见：
 
-- [AGENTS.md](/home/zji/docker/vllm-gemma/AGENTS.md)
+- [AGENTS.md](AGENTS.md)

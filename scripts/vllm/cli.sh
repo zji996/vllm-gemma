@@ -16,6 +16,15 @@ vllm_api_host() {
     printf '%s' "${VLLM_HOST:-127.0.0.1}"
 }
 
+warn_if_api_key_unset() {
+    if [[ -n "${API_KEY:-}" ]]; then
+        return 0
+    fi
+
+    warn "API_KEY is not set; the service will start without authentication."
+    warn "This is acceptable for the default localhost bind, but set API_KEY before exposing the port beyond 127.0.0.1."
+}
+
 cmd_list() {
     local default_profile default_name default_desc
     default_profile="$(vllm_default_profile)"
@@ -138,6 +147,7 @@ cmd_start() {
         exit 1
     fi
 
+    warn_if_api_key_unset
     prepare_profile_model "$profile"
 
     PORT="$(vllm_model_host_port "$profile")"
@@ -361,9 +371,10 @@ cmd_help() {
     echo "  GPU_MEMORY_UTILIZATION   GPU 显存利用率 (default: 0.93)"
     echo "  MAX_MODEL_LEN            最大上下文长度 (default: 65536)"
     echo "  MAX_NUM_SEQS             最大并发请求数 (default: 100)"
-    echo "  API_KEY                  API 密钥 (default from .env/.env.example: abc123)"
+    echo "  API_KEY                  API 密钥 (default: unset / local-only no-auth)"
     echo "  SERVED_MODEL_NAME        OpenAI 兼容 model 名称 (default from .env/.env.example: gemma)"
     echo "  VLLM_HOST                启动成功后展示/测试使用的主机名 (default: 127.0.0.1)"
+    echo "  VLLM_BIND_HOST           docker compose 端口绑定地址 (default: 127.0.0.1)"
     echo "  VLLM_HOST_PORT           服务端口/基准端口 (default: 8000)"
     echo "  VLLM_PORT_BASE           单卡多端口映射基准端口 (default: same as VLLM_HOST_PORT)"
     echo "  MS_GEMMA26B_MODEL_ID     gemma26b 的远端 ModelScope repo id 或本地路径"

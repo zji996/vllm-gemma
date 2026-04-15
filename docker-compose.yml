@@ -32,7 +32,7 @@ x-env-huggingface: &env-huggingface
 
 x-vllm-serve-common: &vllm-serve-common
   VLLM_SERVED_MODEL_NAME: ${SERVED_MODEL_NAME:-gemma}
-  VLLM_API_KEY: ${API_KEY:-abc123}
+  VLLM_API_KEY: ${API_KEY:-}
   VLLM_ENABLE_PREFIX_CACHING: "true"
   # Debug flags for kernel/path A-B testing.
   # Keep bool-like envs parseable by vLLM even when unset in the shell.
@@ -173,7 +173,7 @@ x-base-single-ms: &base-single-ms
   environment: *env-modelscope
   volumes: *common-volumes
   ports:
-    - "${VLLM_HOST_PORT:-8000}:8000"
+    - "${VLLM_BIND_HOST:-127.0.0.1}:${VLLM_HOST_PORT:-8000}:8000"
   ipc: host
   deploy: *deploy-single-3080
   restart: unless-stopped

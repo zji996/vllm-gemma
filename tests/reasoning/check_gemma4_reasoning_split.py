@@ -12,13 +12,15 @@ from typing import Any
 
 
 def post_json(url: str, api_key: str, payload: dict[str, Any]) -> dict[str, Any]:
+    headers = {
+        "Content-Type": "application/json",
+    }
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
     req = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
+        headers=headers,
         method="POST",
     )
     with urllib.request.urlopen(req, timeout=300) as resp:
@@ -234,7 +236,7 @@ def main() -> int:
     host = os.environ.get("VLLM_HOST", "127.0.0.1")
     port = os.environ.get("VLLM_HOST_PORT", "8000")
     parser.add_argument("--base-url", default=f"http://{host}:{port}")
-    parser.add_argument("--api-key", default=os.environ.get("API_KEY", "abc123"))
+    parser.add_argument("--api-key", default=os.environ.get("API_KEY", ""))
     parser.add_argument("--model", default=os.environ.get("SERVED_MODEL_NAME", "gemma"))
     parser.add_argument(
         "--expect-medium-final-content",
